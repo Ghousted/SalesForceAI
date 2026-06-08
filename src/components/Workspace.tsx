@@ -3,12 +3,17 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { ScoutBrief } from "@/agents/scout";
+import type { AuditReport } from "@/agents/auditor";
+import type { Forecast } from "@/agents/forecaster";
 import type { AgentRunResult } from "@/agents/types";
 import { WHEN_LABELS } from "@/agents/types";
 import type { HomeVM } from "@/lib/home/viewModel";
 import { AgentCard } from "./AgentCard";
 import { CommandBar } from "./CommandBar";
 import { ScoutBriefView } from "./ScoutBriefView";
+import { AuditReportView } from "./AuditReportView";
+import { ForecastView } from "./ForecastView";
+import { SparSession } from "./SparSession";
 
 export interface ContactSummary {
   id: string;
@@ -26,7 +31,11 @@ export function Workspace({
 }) {
   const [busy, setBusy] = useState(false);
   const [brief, setBrief] = useState<ScoutBrief | null>(null);
+  const [audit, setAudit] = useState<AuditReport | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
   const [picking, setPicking] = useState(false);
+  const [pickMode, setPickMode] = useState<"scout" | "spar">("scout");
+  const [sparContact, setSparContact] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
   async function scoutFor(contactId: string) {
@@ -49,6 +58,44 @@ export function Workspace({
     }
   }
 
+  async function runAudit() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repId: home.repId }),
+      });
+      const data = (await res.json()) as AgentRunResult<AuditReport> | { error: string };
+      if ("error" in data) setNote(data.error);
+      else setAudit(data.data);
+    } catch {
+      setNote("Couldn't reach the Auditor.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runForecast() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/forecast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repId: home.repId }),
+      });
+      const data = (await res.json()) as AgentRunResult<Forecast> | { error: string };
+      if ("error" in data) setNote(data.error);
+      else setForecast(data.data);
+    } catch {
+      setNote("Couldn't reach the Forecaster.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runCommand(text: string) {
     setBusy(true);
     setNote(null);
@@ -59,7 +106,13 @@ export function Workspace({
         body: JSON.stringify({ text, repId: home.repId }),
       });
       const data = await res.json();
-      if (data.result?.data) {
+      if (data.openSpar) {
+        setSparContact(data.openSpar.contactId as string);
+      } else if (data.result?.agentId === "auditor") {
+        setAudit(data.result.data as AuditReport);
+      } else if (data.result?.agentId === "forecaster") {
+        setForecast(data.result.data as Forecast);
+      } else if (data.result?.data) {
         setBrief(data.result.data as ScoutBrief);
       } else {
         setNote(
@@ -77,7 +130,16 @@ export function Workspace({
   }
 
   function onOpenAgent(id: string) {
-    if (id === "scout") setPicking(true);
+    if (id === "scout") {
+      setPickMode("scout");
+      setPicking(true);
+    }
+    if (id === "sparring-partner") {
+      setPickMode("spar");
+      setPicking(true);
+    }
+    if (id === "auditor") runAudit();
+    if (id === "forecaster") runForecast();
   }
 
   return (
@@ -151,14 +213,25 @@ export function Workspace({
         ))}
       </div>
 
-      {/* Prospect picker */}
+      {/* Prospect picker (shared by Scout + Sparring Partner) */}
       {picking && (
-        <Overlay onClose={() => setPicking(false)} title="Who are you meeting?">
+        <Overlay
+          onClose={() => setPicking(false)}
+          title={
+            pickMode === "spar"
+              ? "Who do you want to rehearse against?"
+              : "Who are you meeting?"
+          }
+        >
           <ul className="divide-y divide-slate-100">
             {contacts.map((c) => (
               <li key={c.id}>
                 <button
-                  onClick={() => scoutFor(c.id)}
+                  onClick={() => {
+                    setPicking(false);
+                    if (pickMode === "spar") setSparContact(c.id);
+                    else scoutFor(c.id);
+                  }}
                   className="flex w-full items-center justify-between py-3 text-left hover:bg-slate-50"
                 >
                   <span>
@@ -185,6 +258,42 @@ export function Workspace({
       {brief && (
         <Overlay onClose={() => setBrief(null)} title="Scout · pre-call brief" wide>
           <ScoutBriefView brief={brief} />
+        </Overlay>
+      )}
+
+      {/* Auditor report slide-over */}
+      {audit && (
+        <Overlay
+          onClose={() => setAudit(null)}
+          title="Auditor · pipeline truth"
+          wide
+        >
+          <AuditReportView report={audit} />
+        </Overlay>
+      )}
+
+      {/* Forecaster slide-over */}
+      {forecast && (
+        <Overlay
+          onClose={() => setForecast(null)}
+          title="Forecaster · the month"
+          wide
+        >
+          <ForecastView forecast={forecast} />
+        </Overlay>
+      )}
+
+      {/* Sparring Partner — interactive session */}
+      {sparContact && (
+        <Overlay
+          onClose={() => setSparContact(null)}
+          title="Sparring Partner · practice"
+          wide
+        >
+          <SparSession
+            contactId={sparContact}
+            onClose={() => setSparContact(null)}
+          />
         </Overlay>
       )}
     </div>

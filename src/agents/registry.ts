@@ -44,7 +44,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Rep-driven",
     mustHave: true,
     phase: 1,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "human",
@@ -92,7 +92,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Manager reviews flags",
     mustHave: true,
     phase: 1,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "forecaster",
@@ -104,7 +104,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Manager reviews",
     mustHave: false,
     phase: 1,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "coach",

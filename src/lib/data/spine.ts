@@ -20,6 +20,15 @@ function getSnapshot(): CrmSnapshot {
   return SYNTHETIC_SNAPSHOT;
 }
 
+/**
+ * "Now" for the platform, anchored to the synthetic pack's today (2026-06-08)
+ * so date-relative reasoning (stale deals, close-date pressure) is deterministic
+ * in demos regardless of the wall clock. Live mode would return the real now.
+ */
+export function spineNow(): Date {
+  return new Date("2026-06-08T12:00:00Z");
+}
+
 export function listReps(): Rep[] {
   return getSnapshot().reps;
 }

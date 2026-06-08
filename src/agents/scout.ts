@@ -5,6 +5,7 @@ import {
 } from "@/lib/data/spine";
 import { DEAL_STAGE_LABELS } from "@/lib/data/types";
 import { getLLM } from "@/lib/llm/provider";
+import { php, formatDate } from "@/lib/format";
 import type { AgentRunResult, EvidenceRef } from "./types";
 
 /**
@@ -44,20 +45,6 @@ export interface ScoutBrief {
   signals: Signal[];
   talkingPoints: string[];
   openRisk: string | null;
-}
-
-const PHP = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-  maximumFractionDigits: 0,
-});
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-PH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 /** Pick out things the rep should act on, each tied to a real activity. */
@@ -166,7 +153,7 @@ export async function runScout(contactId: string): Promise<AgentRunResult<ScoutB
   const factSheet = [
     `${fullName}, ${contact.title} at ${company?.name ?? "—"} (${company?.location ?? "—"}).`,
     deal
-      ? `Considering ${deal.property}, currently "${DEAL_STAGE_LABELS[deal.stage]}", worth ${PHP.format(deal.amount)}, target close ${formatDate(deal.expectedCloseDate)}.`
+      ? `Considering ${deal.property}, currently "${DEAL_STAGE_LABELS[deal.stage]}", worth ${php(deal.amount)}, target close ${formatDate(deal.expectedCloseDate)}.`
       : "No active deal on record.",
     `Persona: ${contact.persona}`,
     signals.length
@@ -201,7 +188,7 @@ export async function runScout(contactId: string): Promise<AgentRunResult<ScoutB
     persona: contact.persona,
     dealHeadline: deal?.property ?? null,
     stageLabel: deal ? DEAL_STAGE_LABELS[deal.stage] : null,
-    amountLabel: deal ? PHP.format(deal.amount) : null,
+    amountLabel: deal ? php(deal.amount) : null,
     expectedClose: deal ? formatDate(deal.expectedCloseDate) : null,
     narrative,
     timeline,

@@ -1,5 +1,9 @@
 import { ROSTER } from "@/agents/registry";
 import { scoutStatus } from "@/agents/scout";
+import { auditorStatus } from "@/agents/auditor";
+import { forecasterStatus } from "@/agents/forecaster";
+import { sparringStatus } from "@/agents/sparring";
+import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
 import { listContactsForRep, getRep } from "@/lib/data/spine";
 
@@ -29,12 +33,9 @@ export interface HomeVM {
 // as alive. Clearly placeholders — paired with the "upcoming" tag in the UI.
 const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
   dispatcher: { kind: "done", message: "Routing rules ready (Phase 2)" },
-  "sparring-partner": { kind: "idle", message: "Ready to rehearse" },
   human: { kind: "idle", message: "Your move — the close stays yours" },
   analyst: { kind: "idle", message: "Activates after your next call (Phase 2)" },
   scribe: { kind: "idle", message: "Drafts follow-ups on request (Phase 2)" },
-  auditor: { kind: "needs", message: "1 deal note looks optimistic" },
-  forecaster: { kind: "done", message: "Forecast refreshes each morning" },
   coach: { kind: "idle", message: "Watching for coaching moments (Phase 2)" },
 };
 
@@ -48,6 +49,30 @@ function statusForAgent(id: string, repId: string): AgentStatus {
       };
     }
     return { kind: "done", message: `${count} briefs ready` };
+  }
+  if (id === "auditor") {
+    const { totalFlags, highSeverity } = auditorStatus(repId);
+    if (totalFlags === 0) {
+      return { kind: "done", message: "Pipeline reconciled · no flags" };
+    }
+    return {
+      kind: highSeverity > 0 ? "needs" : "done",
+      message: `${totalFlags} flag${totalFlags === 1 ? "" : "s"}${highSeverity > 0 ? ` · ${highSeverity} high` : ""}`,
+    };
+  }
+  if (id === "forecaster") {
+    const { monthLabel, evidenceWeighted } = forecasterStatus(repId);
+    return {
+      kind: "done",
+      message: `${monthLabel}: ${php(evidenceWeighted)} (evidence-based)`,
+    };
+  }
+  if (id === "sparring-partner") {
+    const { scenarios } = sparringStatus(repId);
+    return {
+      kind: "idle",
+      message: `Ready to rehearse · ${scenarios} scenario${scenarios === 1 ? "" : "s"}`,
+    };
   }
   return PLACEHOLDER_STATUS[id] ?? { kind: "idle", message: "Ready" };
 }
