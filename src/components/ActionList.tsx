@@ -46,7 +46,9 @@ function Row({
               {action.title}
             </h5>
           </div>
-          <p className="mt-1 text-sm text-slate-600">{action.detail}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">
+            {action.detail}
+          </p>
           {action.error && (
             <p className="mt-1 text-xs text-rose-600">⚠ {action.error}</p>
           )}

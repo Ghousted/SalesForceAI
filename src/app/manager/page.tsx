@@ -8,6 +8,8 @@ import {
 } from "@/lib/data/spine";
 import { DEAL_STAGE_LABELS } from "@/lib/data/types";
 
+export const dynamic = "force-dynamic";
+
 // Manager sees the floor. For now we surface the same seat's book; multi-rep
 // roll-up is a later slice (Auditor/Forecaster already accept no repId = all).
 export default async function ManagerHome() {

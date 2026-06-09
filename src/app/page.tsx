@@ -8,6 +8,9 @@ import {
 } from "@/lib/data/spine";
 import { DEAL_STAGE_LABELS } from "@/lib/data/types";
 
+// Always render per-request — the spine may hit a live CRM (no static prerender).
+export const dynamic = "force-dynamic";
+
 export default async function RepHome() {
   await ensureSnapshot();
   // The seat to show. With auth this comes from the session; for now it's the

@@ -36,7 +36,6 @@ export interface HomeVM {
 const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
   human: { kind: "idle", message: "Your move — the close stays yours" },
   analyst: { kind: "idle", message: "Activates after your next call (Phase 2)" },
-  scribe: { kind: "idle", message: "Drafts follow-ups on request (Phase 2)" },
   coach: { kind: "idle", message: "Watching for coaching moments (Phase 2)" },
 };
 
@@ -85,6 +84,13 @@ function statusForAgent(id: string, repId: string): AgentStatus {
       kind: "idle",
       message: `Ready to rehearse · ${scenarios} scenario${scenarios === 1 ? "" : "s"}`,
     };
+  }
+  if (id === "scribe") {
+    const drafts = pendingCount("scribe");
+    if (drafts > 0) {
+      return { kind: "needs", message: `${drafts} follow-up${drafts === 1 ? "" : "s"} to approve` };
+    }
+    return { kind: "idle", message: "Ready to draft follow-ups" };
   }
   return PLACEHOLDER_STATUS[id] ?? { kind: "idle", message: "Ready" };
 }

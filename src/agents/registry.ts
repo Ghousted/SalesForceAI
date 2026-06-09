@@ -80,7 +80,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Rep approves & sends",
     mustHave: false,
     phase: 2,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "auditor",

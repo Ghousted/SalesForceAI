@@ -77,6 +77,13 @@ const AGENT_SPECS: Record<string, AgentModelSpec> = {
     reason:
       "Interactive role-play and persona — the brain. Needs a larger model and warmer sampling for natural, in-character reactions.",
   },
+  scribe: {
+    tier: "brain",
+    temperature: 0.5,
+    maxTokens: 320,
+    reason:
+      "Customer-facing email copy — quality matters, so the brain; moderate temp for warm-but-controlled prose.",
+  },
 };
 
 /** Default for any caller without a specific spec (e.g. future orchestrator). */

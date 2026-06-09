@@ -37,7 +37,7 @@ export function Workspace({
   const [audit, setAudit] = useState<AuditReport | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [picking, setPicking] = useState(false);
-  const [pickMode, setPickMode] = useState<"scout" | "spar">("scout");
+  const [pickMode, setPickMode] = useState<"scout" | "spar" | "scribe">("scout");
   const [sparContact, setSparContact] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, setPending] = useState<AgentAction[]>([]);
@@ -79,6 +79,30 @@ export function Workspace({
   function onActionResolved(updated: AgentAction) {
     // Drop it from the pending list once it's no longer awaiting approval.
     setPending((prev) => prev.filter((a) => a.id !== updated.id));
+  }
+
+  async function scribeFor(contactId: string) {
+    setBusy(true);
+    setNote(null);
+    setPicking(false);
+    try {
+      const res = await fetch("/api/scribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      const data = await res.json();
+      if (data.error) setNote(data.error);
+      else {
+        setNote(`Scribe drafted a follow-up to ${data.data.prospectName} — review it in your inbox.`);
+        await refreshPending();
+        setInboxOpen(true);
+      }
+    } catch {
+      setNote("Couldn't reach Scribe.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function scoutFor(contactId: string) {
@@ -181,6 +205,10 @@ export function Workspace({
       setPickMode("spar");
       setPicking(true);
     }
+    if (id === "scribe") {
+      setPickMode("scribe");
+      setPicking(true);
+    }
     if (id === "auditor") runAudit();
     if (id === "forecaster") runForecast();
     if (id === "dispatcher") runDispatcher();
@@ -277,7 +305,9 @@ export function Workspace({
           title={
             pickMode === "spar"
               ? "Who do you want to rehearse against?"
-              : "Who are you meeting?"
+              : pickMode === "scribe"
+                ? "Who should Scribe write to?"
+                : "Who are you meeting?"
           }
         >
           <ul className="divide-y divide-slate-100">
@@ -287,6 +317,7 @@ export function Workspace({
                   onClick={() => {
                     setPicking(false);
                     if (pickMode === "spar") setSparContact(c.id);
+                    else if (pickMode === "scribe") scribeFor(c.id);
                     else scoutFor(c.id);
                   }}
                   className="flex w-full items-center justify-between py-3 text-left hover:bg-slate-50"

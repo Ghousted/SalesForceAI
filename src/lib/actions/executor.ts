@@ -1,4 +1,4 @@
-import { setContactOwner } from "@/lib/data/writes";
+import { setContactOwner, logEmail } from "@/lib/data/writes";
 import { updateAction } from "./store";
 import type { AgentAction } from "./types";
 
@@ -12,6 +12,13 @@ export async function executeAction(action: AgentAction): Promise<AgentAction> {
     switch (action.kind) {
       case "assign-owner":
         await setContactOwner(action.target.id, String(action.payload.ownerId));
+        break;
+      case "send-email":
+        await logEmail(
+          String(action.payload.contactId),
+          String(action.payload.subject),
+          String(action.payload.body),
+        );
         break;
       default:
         throw new Error(`No executor for action kind "${action.kind}"`);

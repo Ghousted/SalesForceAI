@@ -83,7 +83,9 @@ Agents don't just report — they propose actions that, with approval, write to 
 - **Policy** (`policy.ts`) — per-agent autonomy: `ask` (propose → one-tap approve, default) or `auto` (act without asking, e.g. `AUTONOMY_DISPATCHER=auto`). External sends (`send-email`) are always `ask` — *the human owns the close*.
 - **Executor + gated writes** (`executor.ts`, `src/lib/data/writes.ts`) — approved actions run against HubSpot (live) or the in-memory pack (synthetic); failures are captured on the action, never crash.
 
-**Dispatcher** is the first automated agent: it finds unassigned leads, scores + routes each to the least-loaded rep, and queues an `assign-owner` action. Approving it sets the contact's owner in HubSpot — which needs the **`crm.objects.contacts.write`** scope on your token.
+Two automated agents ship on the spine:
+- **Dispatcher** — finds unassigned leads, scores + routes each to the least-loaded rep, queues an `assign-owner` action. Approving sets the contact's owner in HubSpot (needs `crm.objects.contacts.write`).
+- **Scribe** — drafts a follow-up email grounded in the prospect's last interaction, queues a `send-email` action (always gated). Approving **logs the email to the HubSpot timeline** (needs `crm.objects.emails.write`); it does *not* transmit — wiring a connected inbox for real send is a deliberate later step.
 
 ## Live data (HubSpot, read-only)
 

@@ -319,6 +319,42 @@ export async function hubspotSetContactOwner(
   await hubspotPatch("contacts", contactId, { hubspot_owner_id: ownerId });
 }
 
+/**
+ * Log an outbound email on a contact's timeline (does NOT transmit — wiring a
+ * connected inbox for real send is a deliberate later step). Needs the
+ * `crm.objects.emails.write` scope. Email→Contact association typeId is 198.
+ */
+export async function hubspotLogEmail(
+  contactId: string,
+  subject: string,
+  body: string,
+): Promise<void> {
+  const res = await fetch(`${BASE}/crm/v3/objects/emails`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      properties: {
+        hs_timestamp: new Date().toISOString(),
+        hs_email_subject: subject,
+        hs_email_text: body,
+        hs_email_direction: "EMAIL", // logged outbound
+      },
+      associations: [
+        {
+          to: { id: contactId },
+          types: [
+            { associationCategory: "HUBSPOT_DEFINED", associationTypeId: 198 },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`HubSpot log email → ${res.status}: ${t.slice(0, 200)}`);
+  }
+}
+
 /** Fetch the full snapshot from HubSpot. Throws on any API failure. */
 export async function fetchHubSpotSnapshot(): Promise<CrmSnapshot> {
   if (!hubspotConfigured()) {
