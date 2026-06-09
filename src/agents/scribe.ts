@@ -2,6 +2,7 @@ import { buildDossier, getRep } from "@/lib/data/spine";
 import { getLLM } from "@/lib/llm/provider";
 import { addAction } from "@/lib/actions/store";
 import { autonomyFor } from "@/lib/actions/policy";
+import { describeDelivery } from "@/lib/email/send";
 import type { AgentAction } from "@/lib/actions/types";
 import type { AgentRunResult } from "./types";
 
@@ -83,7 +84,7 @@ export async function runScribe(contactId: string): Promise<AgentRunResult<Scrib
     agentId: "scribe",
     kind: "send-email",
     title: `Send follow-up to ${prospectName}`,
-    detail: `To: ${contact.email || "(no email on file)"}\nSubject: ${subject}\n\n${body}`,
+    detail: `⚑ ${describeDelivery(contact.email)}\n\nTo: ${contact.email || "(no email on file)"}\nSubject: ${subject}\n\n${body}`,
     target: { kind: "contact", id: contact.id, label: prospectName },
     payload: { subject, body, toEmail: contact.email, contactId: contact.id },
     autonomy: autonomyFor("scribe", "send-email"), // always "ask"

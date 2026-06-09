@@ -19,7 +19,7 @@ This repo is the **Phase 1 foundation**, built as one working vertical rather th
 - **Shared data spine** — all agents read the same material through one module, today fed by a **synthetic, sanitized** Ayala Land real-estate data pack (no live PII).
 - **Provider-agnostic LLM seam with per-agent models** — agents depend on an `LLMProvider` interface, not a vendor SDK. Ships with a deterministic **stub** (zero infrastructure) and a **llama.cpp** adapter. Each agent is matched to the best open-source model for its job, **hot-swappable via [llama-swap](https://github.com/mostlygeek/llama-swap)** — no agent code changes. If the model server is down, agents fall back to grounded text so the platform never breaks.
 
-**All four Phase 1 agents are now live.** The other four (Dispatcher, Analyst, Scribe, Coach — all Phase 2) render on the roster with their push status and are tagged as upcoming.
+**All 8 agents are now implemented.** Four read-only briefers (Scout, Auditor, Forecaster, Sparring Partner), two automated agents that propose gated writes (Dispatcher routes leads, Scribe drafts+sends follow-ups), and two more readouts (Analyst post-call review, Coach who-needs-a-hand). The roster's ninth slot is **You** — the human, who owns the calls and the close.
 
 ## Run it
 
@@ -75,9 +75,13 @@ npm run dev
 
 A single `llama-server` ignores the per-request model name and serves whatever's loaded, so all four agents use the one 3B. Move to a bigger box → switch to llama-swap and point the tiers at different models; no code changes.
 
-## Automation (action spine + Dispatcher)
+## Automation (triggers + action spine)
 
-Agents don't just report — they propose actions that, with approval, write to the CRM. The spine (`src/lib/actions/`) is agent-agnostic:
+Agents fire on their own and propose actions that, with approval, write to the CRM.
+
+**Triggers** (`src/lib/triggers/`) — the clock. An in-process scheduler starts on server boot (`src/instrumentation.ts`) and fires agents on schedule (nightly Auditor/Forecaster) or event (Dispatcher when a new lead appears). The same logic is exposed at `POST /api/triggers/tick` so an external cron can drive it too. Manage them in the **Automations** panel (toggle, run-now, run log). Autonomous runs only ever **propose** — gated actions land in the inbox; the scheduler can't push to a prospect on its own. Disable with `TRIGGERS_AUTORUN=false`.
+
+**The action spine** (`src/lib/actions/`) is agent-agnostic:
 
 - **Queue** — every proposed action lands in `src/lib/actions/store.ts`; the header **Inbox** is the approval UI.
 - **Policy** (`policy.ts`) — per-agent autonomy: `ask` (propose → one-tap approve, default) or `auto` (act without asking, e.g. `AUTONOMY_DISPATCHER=auto`). External sends (`send-email`) are always `ask` — *the human owns the close*.
@@ -85,7 +89,7 @@ Agents don't just report — they propose actions that, with approval, write to 
 
 Two automated agents ship on the spine:
 - **Dispatcher** — finds unassigned leads, scores + routes each to the least-loaded rep, queues an `assign-owner` action. Approving sets the contact's owner in HubSpot (needs `crm.objects.contacts.write`).
-- **Scribe** — drafts a follow-up email grounded in the prospect's last interaction, queues a `send-email` action (always gated). Approving **logs the email to the HubSpot timeline** (needs `crm.objects.emails.write`); it does *not* transmit — wiring a connected inbox for real send is a deliberate later step.
+- **Scribe** — drafts a follow-up email grounded in the prospect's last interaction, queues a `send-email` action (always gated). Approving **sends it** (via Resend, if configured) and **logs it to the HubSpot timeline** (`crm.objects.emails.write`). Real send is opt-in and guard-railed (`src/lib/email/send.ts`): with no `RESEND_API_KEY` it only logs; with `EMAIL_OVERRIDE_TO` set, every send is redirected to that one address (sandbox) so no prospect is emailed; a real prospect address is used only with `EMAIL_ALLOW_REAL=true` and no override.
 
 ## Live data (HubSpot, read-only)
 
@@ -142,8 +146,8 @@ src/
 
 ## Next slices
 
-Phase 1 is feature-complete (all four MVP agents). Toward Phase 2:
+All 8 agents, the action/approval spine, the trigger layer, live HubSpot read + gated writes, and real email (Resend) are in. Remaining polish:
 
-1. Multi-rep data so the manager surface rolls up the whole floor (Auditor/Forecaster already accept an omitted `repId` to cover everyone).
-2. Phase 2 agents: Dispatcher, Analyst, Scribe, Coach.
-3. Gated HubSpot **writes** (Scribe sends, deal-stage corrections) — agent proposes, human approves, with an audit trail.
+1. Multi-rep data so the manager surface rolls up the whole floor (Auditor/Forecaster/Coach already accept an omitted `repId`).
+2. Real conversation-intelligence transcripts to deepen Analyst (today it reasons over logged calls + timeline).
+3. HubSpot webhooks for instant (vs polled) event triggers; verified email domain for non-sandbox send.

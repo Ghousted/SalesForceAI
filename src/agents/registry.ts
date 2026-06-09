@@ -68,7 +68,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Rep reviews insights",
     mustHave: false,
     phase: 2,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "scribe",
@@ -116,7 +116,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Manager acts on tips",
     mustHave: false,
     phase: 2,
-    implemented: false,
+    implemented: true,
   },
 ];
 

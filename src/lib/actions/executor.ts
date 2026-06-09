@@ -1,4 +1,5 @@
 import { setContactOwner, logEmail } from "@/lib/data/writes";
+import { deliverEmail } from "@/lib/email/send";
 import { updateAction } from "./store";
 import type { AgentAction } from "./types";
 
@@ -13,13 +14,15 @@ export async function executeAction(action: AgentAction): Promise<AgentAction> {
       case "assign-owner":
         await setContactOwner(action.target.id, String(action.payload.ownerId));
         break;
-      case "send-email":
-        await logEmail(
-          String(action.payload.contactId),
-          String(action.payload.subject),
-          String(action.payload.body),
-        );
+      case "send-email": {
+        const subject = String(action.payload.subject);
+        const body = String(action.payload.body);
+        // Actually send (Resend, redirected to the sandbox address if set);
+        // then record it on the contact's HubSpot timeline.
+        await deliverEmail({ toEmail: String(action.payload.toEmail ?? ""), subject, body });
+        await logEmail(String(action.payload.contactId), subject, body);
         break;
+      }
       default:
         throw new Error(`No executor for action kind "${action.kind}"`);
     }

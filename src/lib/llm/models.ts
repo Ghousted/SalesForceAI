@@ -84,6 +84,20 @@ const AGENT_SPECS: Record<string, AgentModelSpec> = {
     reason:
       "Customer-facing email copy — quality matters, so the brain; moderate temp for warm-but-controlled prose.",
   },
+  analyst: {
+    tier: "worker",
+    temperature: 0.3,
+    maxTokens: 260,
+    reason:
+      "Post-call review — grounded reasoning over the interaction; a 7B handles the readout well.",
+  },
+  coach: {
+    tier: "mid",
+    temperature: 0.3,
+    maxTokens: 180,
+    reason:
+      "Coaching judgment over a rep's patterns benefits from the mid model; low temp keeps advice grounded.",
+  },
 };
 
 /** Default for any caller without a specific spec (e.g. future orchestrator). */

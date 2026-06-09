@@ -4,6 +4,8 @@ import { auditorStatus } from "@/agents/auditor";
 import { forecasterStatus } from "@/agents/forecaster";
 import { sparringStatus } from "@/agents/sparring";
 import { dispatcherStatus } from "@/agents/dispatcher";
+import { analystStatus } from "@/agents/analyst";
+import { coachStatus } from "@/agents/coach";
 import { pendingCount } from "@/lib/actions/store";
 import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
@@ -35,8 +37,6 @@ export interface HomeVM {
 // as alive. Clearly placeholders — paired with the "upcoming" tag in the UI.
 const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
   human: { kind: "idle", message: "Your move — the close stays yours" },
-  analyst: { kind: "idle", message: "Activates after your next call (Phase 2)" },
-  coach: { kind: "idle", message: "Watching for coaching moments (Phase 2)" },
 };
 
 function statusForAgent(id: string, repId: string): AgentStatus {
@@ -91,6 +91,18 @@ function statusForAgent(id: string, repId: string): AgentStatus {
       return { kind: "needs", message: `${drafts} follow-up${drafts === 1 ? "" : "s"} to approve` };
     }
     return { kind: "idle", message: "Ready to draft follow-ups" };
+  }
+  if (id === "analyst") {
+    const { reviewable } = analystStatus(repId);
+    return reviewable > 0
+      ? { kind: "idle", message: `${reviewable} call${reviewable === 1 ? "" : "s"} to review` }
+      : { kind: "idle", message: "Reviews your calls after they happen" };
+  }
+  if (id === "coach") {
+    const { repsToCoach } = coachStatus();
+    return repsToCoach > 0
+      ? { kind: "needs", message: `${repsToCoach} rep${repsToCoach === 1 ? "" : "s"} need a hand` }
+      : { kind: "done", message: "Floor looks healthy" };
   }
   return PLACEHOLDER_STATUS[id] ?? { kind: "idle", message: "Ready" };
 }

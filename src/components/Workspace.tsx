@@ -6,6 +6,8 @@ import type { ScoutBrief } from "@/agents/scout";
 import type { AuditReport } from "@/agents/auditor";
 import type { Forecast } from "@/agents/forecaster";
 import type { DispatchReport } from "@/agents/dispatcher";
+import type { AnalystReport } from "@/agents/analyst";
+import type { CoachReport } from "@/agents/coach";
 import type { AgentRunResult } from "@/agents/types";
 import type { AgentAction } from "@/lib/actions/types";
 import { WHEN_LABELS } from "@/agents/types";
@@ -17,6 +19,9 @@ import { AuditReportView } from "./AuditReportView";
 import { ForecastView } from "./ForecastView";
 import { SparSession } from "./SparSession";
 import { ActionList } from "./ActionList";
+import { AutomationsPanel } from "./AutomationsPanel";
+import { AnalystView } from "./AnalystView";
+import { CoachView } from "./CoachView";
 
 export interface ContactSummary {
   id: string;
@@ -36,12 +41,15 @@ export function Workspace({
   const [brief, setBrief] = useState<ScoutBrief | null>(null);
   const [audit, setAudit] = useState<AuditReport | null>(null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [analyst, setAnalyst] = useState<AnalystReport | null>(null);
+  const [coach, setCoach] = useState<CoachReport | null>(null);
   const [picking, setPicking] = useState(false);
-  const [pickMode, setPickMode] = useState<"scout" | "spar" | "scribe">("scout");
+  const [pickMode, setPickMode] = useState<"scout" | "spar" | "scribe" | "analyst">("scout");
   const [sparContact, setSparContact] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, setPending] = useState<AgentAction[]>([]);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [automationsOpen, setAutomationsOpen] = useState(false);
 
   const refreshPending = useCallback(async () => {
     try {
@@ -53,8 +61,11 @@ export function Workspace({
     }
   }, []);
 
+  // Poll so proposals from auto-fired triggers surface in the inbox badge.
   useEffect(() => {
     void refreshPending();
+    const t = setInterval(() => void refreshPending(), 30_000);
+    return () => clearInterval(t);
   }, [refreshPending]);
 
   async function runDispatcher() {
@@ -79,6 +90,41 @@ export function Workspace({
   function onActionResolved(updated: AgentAction) {
     // Drop it from the pending list once it's no longer awaiting approval.
     setPending((prev) => prev.filter((a) => a.id !== updated.id));
+  }
+
+  async function analystFor(contactId: string) {
+    setBusy(true);
+    setNote(null);
+    setPicking(false);
+    try {
+      const res = await fetch("/api/analyst", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      const data = (await res.json()) as AgentRunResult<AnalystReport> | { error: string };
+      if ("error" in data) setNote(data.error);
+      else setAnalyst(data.data);
+    } catch {
+      setNote("Couldn't reach the Analyst.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runCoach() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/coach", { method: "POST" });
+      const data = (await res.json()) as AgentRunResult<CoachReport> | { error: string };
+      if ("error" in data) setNote(data.error);
+      else setCoach(data.data);
+    } catch {
+      setNote("Couldn't reach the Coach.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function scribeFor(contactId: string) {
@@ -209,9 +255,14 @@ export function Workspace({
       setPickMode("scribe");
       setPicking(true);
     }
+    if (id === "analyst") {
+      setPickMode("analyst");
+      setPicking(true);
+    }
     if (id === "auditor") runAudit();
     if (id === "forecaster") runForecast();
     if (id === "dispatcher") runDispatcher();
+    if (id === "coach") runCoach();
   }
 
   return (
@@ -230,6 +281,12 @@ export function Workspace({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setAutomationsOpen(true)}
+            className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300"
+          >
+            Automations
+          </button>
           <button
             onClick={() => setInboxOpen(true)}
             className="relative rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300"
@@ -307,7 +364,9 @@ export function Workspace({
               ? "Who do you want to rehearse against?"
               : pickMode === "scribe"
                 ? "Who should Scribe write to?"
-                : "Who are you meeting?"
+                : pickMode === "analyst"
+                  ? "Which call should the Analyst review?"
+                  : "Who are you meeting?"
           }
         >
           <ul className="divide-y divide-slate-100">
@@ -318,6 +377,7 @@ export function Workspace({
                     setPicking(false);
                     if (pickMode === "spar") setSparContact(c.id);
                     else if (pickMode === "scribe") scribeFor(c.id);
+                    else if (pickMode === "analyst") analystFor(c.id);
                     else scoutFor(c.id);
                   }}
                   className="flex w-full items-center justify-between py-3 text-left hover:bg-slate-50"
@@ -371,6 +431,20 @@ export function Workspace({
         </Overlay>
       )}
 
+      {/* Analyst — post-call review */}
+      {analyst && (
+        <Overlay onClose={() => setAnalyst(null)} title="Analyst · post-call review" wide>
+          <AnalystView report={analyst} />
+        </Overlay>
+      )}
+
+      {/* Coach — who needs a hand */}
+      {coach && (
+        <Overlay onClose={() => setCoach(null)} title="Coach · who needs a hand" wide>
+          <CoachView report={coach} />
+        </Overlay>
+      )}
+
       {/* Sparring Partner — interactive session */}
       {sparContact && (
         <Overlay
@@ -382,6 +456,17 @@ export function Workspace({
             contactId={sparContact}
             onClose={() => setSparContact(null)}
           />
+        </Overlay>
+      )}
+
+      {/* Automations — triggers, schedule, run log */}
+      {automationsOpen && (
+        <Overlay
+          onClose={() => setAutomationsOpen(false)}
+          title="Automations · agents that run themselves"
+          wide
+        >
+          <AutomationsPanel onRan={refreshPending} />
         </Overlay>
       )}
 
