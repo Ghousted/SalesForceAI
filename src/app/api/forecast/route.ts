@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runForecaster } from "@/agents/forecaster";
+import { ensureSnapshot } from "@/lib/data/spine";
 
 export async function POST(req: Request) {
   let repId: string | undefined;
@@ -11,6 +12,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureSnapshot();
     const result = await runForecaster(repId);
     return NextResponse.json(result);
   } catch (err) {

@@ -1,15 +1,20 @@
 import { Workspace, type ContactSummary } from "@/components/Workspace";
 import { buildHomeVM } from "@/lib/home/viewModel";
-import { getDealForContact, listContactsForRep } from "@/lib/data/spine";
+import {
+  ensureSnapshot,
+  getDealForContact,
+  listContactsForRep,
+  resolveRepId,
+} from "@/lib/data/spine";
 import { DEAL_STAGE_LABELS } from "@/lib/data/types";
 
-// Manager sees the floor. For the tracer build we surface the same seat's book;
-// multi-rep roll-up arrives with the Forecaster/Auditor slice.
-const DEMO_REP = "rep_maya";
-
-export default function ManagerHome() {
-  const home = buildHomeVM(DEMO_REP, "manager");
-  const contacts: ContactSummary[] = listContactsForRep(DEMO_REP).map((c) => {
+// Manager sees the floor. For now we surface the same seat's book; multi-rep
+// roll-up is a later slice (Auditor/Forecaster already accept no repId = all).
+export default async function ManagerHome() {
+  await ensureSnapshot();
+  const repId = resolveRepId(process.env.SALESOS_REP_ID);
+  const home = buildHomeVM(repId, "manager");
+  const contacts: ContactSummary[] = listContactsForRep(repId).map((c) => {
     const deal = getDealForContact(c.id);
     return {
       id: c.id,

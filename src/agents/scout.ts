@@ -163,6 +163,7 @@ export async function runScout(contactId: string): Promise<AgentRunResult<ScoutB
 
   const llm = getLLM();
   const narrative = await llm.complete({
+    agent: "scout",
     system:
       "You are Scout, a pre-call briefer. In 2–3 sentences, tell the rep who this person is, where the deal stands, and the single most important thing to handle on the call. Use only the facts given.",
     user: factSheet,

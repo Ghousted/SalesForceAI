@@ -1,4 +1,5 @@
 import { SYNTHETIC_SNAPSHOT } from "./synthetic";
+import { activeSource, loadSnapshot } from "./source";
 import type {
   Activity,
   Company,
@@ -12,21 +13,56 @@ import type {
  * The shared data spine (PRD §8).
  *
  * Every agent reads the same material through this one module rather than each
- * collecting separately. Today it serves the synthetic snapshot; swapping in a
- * live HubSpot-backed source later means re-implementing only this file.
+ * collecting separately. The backing store (synthetic pack or live HubSpot) is
+ * chosen in ./source.ts. Agents and UI call the sync query functions below; the
+ * data is hydrated once per request window via `ensureSnapshot()` and cached
+ * here, so the sync read path is unchanged regardless of source.
  */
 
+let cache: { snapshot: CrmSnapshot; at: number } | null = null;
+const TTL_MS = Number(process.env.DATA_TTL_MS ?? 60_000);
+
+/**
+ * Hydrate the cache from the active source. Call this (and await it) at every
+ * server entry point — API routes and pages — before reading the spine. For the
+ * synthetic source it's a no-op; for HubSpot it fetches (respecting a TTL) and
+ * falls back to the last good cache / synthetic on failure so the app stays up.
+ */
+export async function ensureSnapshot(): Promise<void> {
+  if (activeSource() === "synthetic") return; // getSnapshot() serves synthetic
+  const now = Date.now();
+  if (cache && now - cache.at < TTL_MS) return;
+  try {
+    const snapshot = await loadSnapshot();
+    cache = { snapshot, at: now };
+  } catch (err) {
+    console.error(
+      `[spine] live data load failed; serving ${cache ? "last cache" : "synthetic"} instead:`,
+      err,
+    );
+  }
+}
+
 function getSnapshot(): CrmSnapshot {
-  return SYNTHETIC_SNAPSHOT;
+  return cache?.snapshot ?? SYNTHETIC_SNAPSHOT;
 }
 
 /**
- * "Now" for the platform, anchored to the synthetic pack's today (2026-06-08)
- * so date-relative reasoning (stale deals, close-date pressure) is deterministic
- * in demos regardless of the wall clock. Live mode would return the real now.
+ * "Now" for the platform. For the synthetic pack it's anchored to that pack's
+ * today (2026-06-08) so date math is deterministic in demos; against live
+ * HubSpot data it's the real wall clock.
  */
 export function spineNow(): Date {
-  return new Date("2026-06-08T12:00:00Z");
+  return activeSource() === "hubspot"
+    ? new Date()
+    : new Date("2026-06-08T12:00:00Z");
+}
+
+/** Resolve a usable rep id: the preferred one if present, else the first. */
+export function resolveRepId(preferred?: string): string {
+  const reps = getSnapshot().reps;
+  if (preferred && reps.some((r) => r.id === preferred)) return preferred;
+  return reps[0]?.id ?? preferred ?? "";
 }
 
 export function listReps(): Rep[] {
@@ -43,6 +79,10 @@ export function getContact(id: string): Contact | undefined {
 
 export function listContactsForRep(repId: string): Contact[] {
   return getSnapshot().contacts.filter((c) => c.ownerRepId === repId);
+}
+
+export function listAllContacts(): Contact[] {
+  return getSnapshot().contacts;
 }
 
 export function getCompany(id: string): Company | undefined {

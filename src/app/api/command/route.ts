@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runCommand } from "@/lib/command/router";
+import { ensureSnapshot } from "@/lib/data/spine";
 
 export async function POST(req: Request) {
   let text: string | undefined;
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     );
   }
 
+  await ensureSnapshot();
   const outcome = await runCommand(text, repId);
   return NextResponse.json(outcome);
 }

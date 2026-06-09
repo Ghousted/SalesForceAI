@@ -173,6 +173,7 @@ export async function runForecaster(
 
   const llm = getLLM();
   const digest = await llm.complete({
+    agent: "forecaster",
     system:
       "You are the Forecaster briefing a sales manager. In 2 sentences, give the month's evidence-based number vs the rep number and the gap, then name the single deal inflating the forecast most. Use only the figures provided.",
     user:

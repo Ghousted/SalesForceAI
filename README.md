@@ -17,7 +17,7 @@ This repo is the **Phase 1 foundation**, built as one working vertical rather th
 - **Sparring Partner, end-to-end** (must-have) — an **interactive, multi-turn** practice partner. It role-plays the prospect, raising objections grounded in that prospect's real persona, deal, and recent messages (Elena gets a leasing/flexibility objection from her husband's question; Ramon, a "don't rush me" from his relationship persona). It scores each answer (acknowledged / addressed / concrete / effort), reacts in character, and ends with a session scorecard. Stateless: recomputed from the transcript each turn.
 - **Command bar** — plain-language pull, routed to the right agent ("brief me on Elena" → Scout; "check my pipeline" → Auditor; "forecast the month" → Forecaster; "practice with Elena" → Sparring Partner).
 - **Shared data spine** — all agents read the same material through one module, today fed by a **synthetic, sanitized** Ayala Land real-estate data pack (no live PII).
-- **Provider-agnostic LLM seam** — agents depend on an `LLMProvider` interface, not a vendor SDK. Runs fully on a deterministic stub with no API key; a real model drops in later.
+- **Provider-agnostic LLM seam with per-agent models** — agents depend on an `LLMProvider` interface, not a vendor SDK. Ships with a deterministic **stub** (zero infrastructure) and a **llama.cpp** adapter. Each agent is matched to the best open-source model for its job, **hot-swappable via [llama-swap](https://github.com/mostlygeek/llama-swap)** — no agent code changes. If the model server is down, agents fall back to grounded text so the platform never breaks.
 
 **All four Phase 1 agents are now live.** The other four (Dispatcher, Analyst, Scribe, Coach — all Phase 2) render on the roster with their push status and are tagged as upcoming.
 
@@ -32,6 +32,63 @@ npm run dev        # http://localhost:3000
 - `/manager` — Manager workspace
 
 Other scripts: `npm run build`, `npm run start`, `npm run typecheck`.
+
+By default (`LLM_PROVIDER=stub`) it runs with **no model server** — the stub returns grounded text. To run with real local models, see below.
+
+## Running with local models (llama.cpp, per-agent hot-swap)
+
+Each agent uses the best open-source model for its job, loaded on demand via [llama-swap](https://github.com/mostlygeek/llama-swap) (one OpenAI-compatible endpoint that swaps GGUFs by model name):
+
+| Agent | Tier | Default model | Why |
+|---|---|---|---|
+| Scout | worker | `qwen2.5-7b-instruct` | Fast, grounded summarization into a brief |
+| Forecaster | worker | `qwen2.5-7b-instruct` | Short, faithful numeric digest (cold sampling) |
+| Auditor | mid | `qwen2.5-14b-instruct` | Flag accuracy is the trust currency — stronger reasoning over evidence |
+| Sparring Partner | **brain** | `qwen2.5-32b-instruct` | Interactive role-play & persona — the brain, warmer sampling |
+
+```bash
+# 1. Serve the models (edit GGUF paths/quants in infra/llama-swap.yaml first)
+llama-swap --config infra/llama-swap.yaml --listen :8080
+
+# 2. Point Sales OS at it
+echo "LLM_PROVIDER=llamacpp" >> .env.local
+echo "LLAMACPP_BASE_URL=http://localhost:8080/v1" >> .env.local
+npm run dev
+```
+
+Inspect the live mapping at **`GET /api/models`**. Swapping an agent's model is pure config — change a tier in `.env` (`MODEL_WORKER`, `MODEL_MID`, `MODEL_BRAIN`, …) or the per-agent tier in `src/lib/llm/models.ts`; no agent code changes. If the server is unreachable, agents fall back to grounded text so a demo never breaks. Downshift quants/models to fit your VRAM — the mapping is unchanged.
+
+### Low-RAM machines (≈8 GB): single model, no swap
+
+llama-swap only keeps one model resident, so on ~8 GB you can't run the full ladder. Run **one** `llama-server` with a small model and point every tier at it (`.env.local` already does this). The easy path:
+
+```bash
+brew install llama.cpp     # one-time: provides llama-server (Metal-accelerated)
+npm run model              # downloads Qwen2.5-3B (once) + serves it on :8080
+# in another terminal:
+npm run dev
+```
+
+`npm run model` (see `scripts/model.sh`) downloads the GGUF on first run and is idempotent — if a server is already healthy on `:8080` it no-ops. Override defaults via env: `MODEL_FILE`, `MODEL_URL`, `PORT`, `CTX`, `NGL`.
+
+> **Why not `llama-server -hf …`?** llama.cpp's built-in Hugging Face downloader currently **hangs** on HF's Xet/CAS storage backend (0 bytes, no error). The script fetches the GGUF with `curl` and launches with `-m` instead.
+
+A single `llama-server` ignores the per-request model name and serves whatever's loaded, so all four agents use the one 3B. Move to a bigger box → switch to llama-swap and point the tiers at different models; no code changes.
+
+## Live data (HubSpot, read-only)
+
+The app defaults to the synthetic pack. To run against a live HubSpot CRM:
+
+1. In HubSpot, create a **Private App** with read scopes: `crm.objects.contacts.read`, `crm.objects.companies.read`, `crm.objects.deals.read`, `crm.objects.owners.read`, plus the activity scopes (`sales-email-read` and calls/meetings/notes read).
+2. Set env:
+
+```bash
+DATA_SOURCE=hubspot
+HUBSPOT_ACCESS_TOKEN=pat-xxxxxxxx
+# SALESOS_REP_ID=<owner id>   # optional; defaults to the first owner
+```
+
+Only the **data layer** changes — `src/lib/data/hubspot.ts` maps HubSpot owners/companies/contacts/deals/activities into the same `CrmSnapshot` the agents already read, so Scout, Auditor, Forecaster and the Sparring Partner work unchanged. The snapshot is fetched on demand and cached (`DATA_TTL_MS`, default 60 s). It's **read-only** — writes stay out (agents propose, humans approve). If the token is missing or a fetch fails, the spine logs it and falls back to synthetic so the app never hard-stops. Two optional custom contact/deal properties enrich the mapping if present: `salesos_persona` (contact) and `salesos_property` (deal); otherwise sensible fallbacks are used.
 
 ## Architecture
 
@@ -53,8 +110,12 @@ src/
     forecaster.ts         Forecaster — month forecast built on the Auditor's confidence
     sparring.ts           Sparring Partner — grounded objections, scoring, scorecard
   lib/
-    data/                 The shared data spine (types, synthetic pack, queries)
-    llm/provider.ts       Provider-agnostic LLM seam (stub by default)
+    data/spine.ts         Shared data spine: sync queries + async ensureSnapshot() cache
+    data/source.ts        Source selection (synthetic | hubspot)
+    data/synthetic.ts     The sanitized Ayala Land pack
+    data/hubspot.ts       HubSpot v3 read adapter → CrmSnapshot (read-only)
+    llm/provider.ts       LLM seam: stub + llama.cpp adapter (per-agent models)
+    llm/models.ts         Per-agent model assignment (hot-swap tiers)
     command/router.ts     Plain-language → agent routing
     home/viewModel.ts     Builds the roster home view-model + push statuses
     format.ts             Shared PHP/date formatting
@@ -72,6 +133,5 @@ src/
 Phase 1 is feature-complete (all four MVP agents). Toward Phase 2:
 
 1. Multi-rep data so the manager surface rolls up the whole floor (Auditor/Forecaster already accept an omitted `repId` to cover everyone).
-2. Wire a live `LLMProvider` (Anthropic/OpenAI) behind the existing seam — the Sparring Partner's role-play and every agent narrative upgrade with no shape change.
-3. Phase 2 agents: Dispatcher, Analyst, Scribe, Coach.
-4. Live, governed HubSpot read/write.
+2. Phase 2 agents: Dispatcher, Analyst, Scribe, Coach.
+3. Gated HubSpot **writes** (Scribe sends, deal-stage corrections) — agent proposes, human approves, with an audit trail.

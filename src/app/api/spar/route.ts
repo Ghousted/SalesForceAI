@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runSparSession, type SparAnswer } from "@/agents/sparring";
+import { ensureSnapshot } from "@/lib/data/spine";
 
 export async function POST(req: Request) {
   let contactId: string | undefined;
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureSnapshot();
     const result = await runSparSession(contactId, answers);
     return NextResponse.json(result);
   } catch (err) {

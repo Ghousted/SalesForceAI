@@ -1,14 +1,20 @@
 import { Workspace, type ContactSummary } from "@/components/Workspace";
 import { buildHomeVM } from "@/lib/home/viewModel";
-import { getDealForContact, listContactsForRep } from "@/lib/data/spine";
+import {
+  ensureSnapshot,
+  getDealForContact,
+  listContactsForRep,
+  resolveRepId,
+} from "@/lib/data/spine";
 import { DEAL_STAGE_LABELS } from "@/lib/data/types";
 
-// Demo seat. With auth, this comes from the session.
-const DEMO_REP = "rep_maya";
-
-export default function RepHome() {
-  const home = buildHomeVM(DEMO_REP, "rep");
-  const contacts: ContactSummary[] = listContactsForRep(DEMO_REP).map((c) => {
+export default async function RepHome() {
+  await ensureSnapshot();
+  // The seat to show. With auth this comes from the session; for now it's the
+  // configured rep (or the first one in the data).
+  const repId = resolveRepId(process.env.SALESOS_REP_ID);
+  const home = buildHomeVM(repId, "rep");
+  const contacts: ContactSummary[] = listContactsForRep(repId).map((c) => {
     const deal = getDealForContact(c.id);
     return {
       id: c.id,

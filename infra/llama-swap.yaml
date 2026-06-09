@@ -1,0 +1,56 @@
+# llama-swap config for Sales OS — per-agent hot-swappable models.
+#
+# llama-swap presents ONE OpenAI-compatible endpoint and loads the right GGUF on
+# demand based on the `model` field in each request. Sales OS agents name their
+# model per the tiers in src/lib/llm/models.ts, so the keys below MUST match
+# MODEL_FAST / MODEL_WORKER / MODEL_MID / MODEL_BRAIN in your .env.
+#
+# Run:
+#   llama-swap --config infra/llama-swap.yaml --listen :8080
+# Then in .env:
+#   LLM_PROVIDER=llamacpp
+#   LLAMACPP_BASE_URL=http://localhost:8080/v1
+#
+# Adjust the `cmd` paths, GGUF files, quant levels, and -ngl (GPU layers) to your
+# machine. Pick smaller quants/models if you're VRAM-constrained — the agent
+# mapping is unchanged, you're just swapping what each key points at.
+#
+# Rough VRAM (Q4_K_M): 3B ~3GB · 7B ~6GB · 14B ~10GB · 32B ~20GB.
+
+# Unload an idle model after 5 min so a big brain model frees VRAM between uses.
+healthCheckTimeout: 120
+models:
+  # --- worker tier: Scout, Forecaster -------------------------------------
+  qwen2.5-7b-instruct:
+    cmd: >
+      llama-server --port ${PORT} -ngl 99 --ctx-size 8192
+      -m /models/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+    ttl: 300
+
+  # --- mid tier: Auditor (faithfulness-critical) --------------------------
+  qwen2.5-14b-instruct:
+    cmd: >
+      llama-server --port ${PORT} -ngl 99 --ctx-size 8192
+      -m /models/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+    ttl: 300
+
+  # --- brain tier: Sparring Partner role-play -----------------------------
+  qwen2.5-32b-instruct:
+    cmd: >
+      llama-server --port ${PORT} -ngl 99 --ctx-size 8192
+      -m /models/Qwen2.5-32B-Instruct-Q4_K_M.gguf
+    ttl: 300
+
+  # --- fast tier: reserved for quick/templated work -----------------------
+  qwen2.5-3b-instruct:
+    cmd: >
+      llama-server --port ${PORT} -ngl 99 --ctx-size 8192
+      -m /models/Qwen2.5-3B-Instruct-Q4_K_M.gguf
+    ttl: 300
+
+# Optional: keep the two hot agents' models resident together so a Sparring
+# session doesn't evict the worker model mid-demo. Uncomment to use a group.
+# groups:
+#   hot:
+#     swap: false
+#     members: [qwen2.5-7b-instruct, qwen2.5-32b-instruct]

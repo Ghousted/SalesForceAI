@@ -289,6 +289,7 @@ export async function runAuditor(
   // Manager-facing summary through the LLM seam, grounded in the tallies above.
   const llm = getLLM();
   const summary = await llm.complete({
+    agent: "auditor",
     system:
       "You are the Auditor reporting to a sales manager. In 1–2 sentences, state how many flags were raised, the biggest risk, and the gap between the team's pipeline confidence and the evidence. Be factual; cite numbers only from the input.",
     user:

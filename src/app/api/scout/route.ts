@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runScout } from "@/agents/scout";
+import { ensureSnapshot } from "@/lib/data/spine";
 
 export async function POST(req: Request) {
   let contactId: string | undefined;
@@ -15,6 +16,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureSnapshot();
     const result = await runScout(contactId);
     return NextResponse.json(result);
   } catch (err) {

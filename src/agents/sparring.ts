@@ -204,19 +204,33 @@ function evaluate(objection: Objection, repMessage: string): TurnEvaluation {
   return { score, strengths, misses };
 }
 
-function reactionTone(score: number): { mood: string; line: (name: string, theme: string) => string } {
+interface ReactionTone {
+  mood: string;
+  /** How the buyer should feel about the answer — steers the model. */
+  guidance: string;
+  /** Deterministic fallback line if the model errors or drifts. */
+  line: (name: string, theme: string) => string;
+}
+
+function reactionTone(score: number): ReactionTone {
   if (score >= 70)
     return {
       mood: "won-over",
-      line: (_n, _t) => "Okay — that actually answers it. I appreciate the straight reply. What's next?",
+      guidance:
+        "Their answer satisfied you. Acknowledge it warmly and signal you're ready to move forward.",
+      line: () => "Okay — that actually answers it. I appreciate the straight reply. What's next?",
     };
   if (score >= 40)
     return {
       mood: "partly-satisfied",
+      guidance:
+        "Their answer was only partial. Say what still nags you and press for more specifics.",
       line: (_n, t) => `Hm. That's part of it, but I'm still not fully settled on the ${t.toLowerCase()}. Can you go a bit deeper?`,
     };
   return {
     mood: "unconvinced",
+    guidance:
+      "Their answer did NOT address your concern. Push back, a little frustrated, and restate what you actually need to hear.",
     line: (_n, t) => `Honestly, I didn't really hear an answer to my concern about ${t.toLowerCase()}. That's the kind of thing that makes me hesitate.`,
   };
 }
@@ -225,15 +239,28 @@ async function composeReaction(
   d: ProspectDossier,
   objection: Objection,
   evaluation: TurnEvaluation,
+  repMessage: string,
 ): Promise<string> {
   const tone = reactionTone(evaluation.score);
   const scripted = tone.line(d.contact.firstName, objection.theme);
   const llm = getLLM();
-  return llm.complete({
-    system: `Role-play as ${d.contact.firstName}, a real-estate prospect. Persona: ${d.contact.persona} Stay in character and reply in 1–2 sentences as the buyer, ${tone.mood} by the salesperson's last answer. Do not break character.`,
-    user: scripted,
+  // Give the model the rep's ACTUAL answer to react to — not a scripted line.
+  // It must speak as the buyer reacting, never as the salesperson.
+  const reply = await llm.complete({
+    agent: "sparring-partner",
+    system:
+      `You ARE ${d.contact.firstName}, the BUYER in a real-estate sales conversation — never the salesperson. ` +
+      `Persona: ${d.contact.persona} ` +
+      `You raised this concern: "${objection.prompt}" ` +
+      `${tone.guidance} ` +
+      `Reply in 1–2 short sentences, first person, in character. Do not give sales advice, do not coach, do not speak as the salesperson.`,
+    user: `The salesperson just answered: "${repMessage}"`,
     grounding: { objection, evaluation },
   });
+  // Fall back to the scripted line if the model returned nothing usable or
+  // echoed the rep's answer (stub/error fallback returns the user payload).
+  if (!reply || reply.includes(repMessage)) return scripted;
+  return reply;
 }
 
 function buildScorecard(turns: CompletedTurn[]): Scorecard {
@@ -271,7 +298,12 @@ export async function runSparSession(
   for (let i = 0; i < answers.length && i < objections.length; i++) {
     const objection = objections[i];
     const evaluation = evaluate(objection, answers[i].repMessage);
-    const inCharacterReply = await composeReaction(dossier, objection, evaluation);
+    const inCharacterReply = await composeReaction(
+      dossier,
+      objection,
+      evaluation,
+      answers[i].repMessage,
+    );
     turns.push({ objection, repMessage: answers[i].repMessage, evaluation, inCharacterReply });
   }
 
