@@ -56,20 +56,20 @@ class StubProvider implements LLMProvider {
 }
 
 /**
- * llama.cpp adapter (OpenAI-compatible `/v1/chat/completions`).
- *
- * Per-agent model selection is hot-swappable: each call names its model and,
- * with llama-swap in front, that GGUF is loaded on demand. If the server is
- * unreachable, it falls back to the grounded `user` text so the app never
- * breaks during a demo.
+ * OpenAI-compatible chat adapter — one class for every `/v1/chat/completions`
+ * endpoint: local **llama.cpp** (with llama-swap for hot-swappable GGUFs) and
+ * hosted providers (**OpenAI, Groq, Together**, …). Only the base URL, key, and
+ * model names differ; per-agent model selection (`modelForAgent`) is unchanged.
+ * If the endpoint is unreachable it falls back to the grounded `user` text so a
+ * model outage never takes the platform down.
  */
-class LlamaCppProvider implements LLMProvider {
-  readonly name = "llamacpp";
-  private readonly baseUrl = (
-    process.env.LLAMACPP_BASE_URL ?? "http://localhost:8080/v1"
-  ).replace(/\/+$/, "");
-  private readonly apiKey = process.env.LLAMACPP_API_KEY;
-  private readonly timeoutMs = Number(process.env.LLAMACPP_TIMEOUT_MS ?? 60_000);
+class OpenAICompatibleProvider implements LLMProvider {
+  constructor(
+    readonly name: string,
+    private readonly baseUrl: string,
+    private readonly apiKey: string | undefined,
+    private readonly timeoutMs: number,
+  ) {}
 
   async complete(req: LLMCompletionRequest): Promise<string> {
     const cfg = modelForAgent(req.agent);
@@ -95,19 +95,15 @@ class LlamaCppProvider implements LLMProvider {
         signal: controller.signal,
       });
       if (!res.ok) {
-        throw new Error(`llama.cpp HTTP ${res.status} for model ${cfg.model}`);
+        throw new Error(`${this.name} HTTP ${res.status} for model ${cfg.model}`);
       }
       const data = await res.json();
       const text: string | undefined = data?.choices?.[0]?.message?.content;
       if (!text || !text.trim()) throw new Error("empty completion");
       return text.trim();
     } catch (err) {
-      // Resilient fallback: return the grounded input so a missing/slow model
-      // server never takes the platform down.
       console.warn(
-        `[llm] llama.cpp failed for agent=${cfg.agent} model=${cfg.model}: ${String(
-          err,
-        )} — falling back to grounded text.`,
+        `[llm] ${this.name} failed for agent=${cfg.agent} model=${cfg.model}: ${String(err)} — falling back to grounded text.`,
       );
       return req.user.trim();
     } finally {
@@ -116,15 +112,31 @@ class LlamaCppProvider implements LLMProvider {
   }
 }
 
+const stripSlash = (u: string) => u.replace(/\/+$/, "");
+
 let cached: LLMProvider | null = null;
 
 export function getLLM(): LLMProvider {
   if (cached) return cached;
 
   const choice = (process.env.LLM_PROVIDER ?? "stub").toLowerCase();
+  const timeout = Number(process.env.LLM_TIMEOUT_MS ?? 60_000);
   switch (choice) {
     case "llamacpp":
-      cached = new LlamaCppProvider();
+      cached = new OpenAICompatibleProvider(
+        "llamacpp",
+        stripSlash(process.env.LLAMACPP_BASE_URL ?? "http://localhost:8080/v1"),
+        process.env.LLAMACPP_API_KEY,
+        timeout,
+      );
+      break;
+    case "openai": // any hosted OpenAI-compatible endpoint (OpenAI, Groq, Together…)
+      cached = new OpenAICompatibleProvider(
+        "openai",
+        stripSlash(process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"),
+        process.env.OPENAI_API_KEY,
+        timeout,
+      );
       break;
     case "stub":
     default:

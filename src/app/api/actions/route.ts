@@ -7,9 +7,9 @@ export async function GET(req: Request) {
   const status = url.searchParams.get("status");
   const actions =
     status === "pending"
-      ? listActions({ pending: true })
+      ? await listActions({ pending: true })
       : status
-        ? listActions({ status: status as never })
-        : listActions();
+        ? await listActions({ status: status as never })
+        : await listActions();
   return NextResponse.json({ actions });
 }

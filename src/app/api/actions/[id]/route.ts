@@ -8,7 +8,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const action = getAction(id);
+  const action = await getAction(id);
   if (!action) {
     return NextResponse.json({ error: "Action not found" }, { status: 404 });
   }
@@ -27,7 +27,7 @@ export async function POST(
   }
 
   if (decision === "reject") {
-    const updated = updateAction(id, {
+    const updated = await updateAction(id, {
       status: "rejected",
       resolvedAt: new Date().toISOString(),
     });

@@ -9,6 +9,14 @@
 
 ---
 
+## v0.2 — Pivot: standalone agent-native CRM (current direction)
+
+The original framing (below) made Sales OS a **layer on top of HubSpot**. That's a hard sell to teams already invested in HubSpot. **New direction:** Sales OS is a **standalone, agent-native CRM SaaS** with its *own* system of record (own database for contacts/companies/deals/activities). The named agents automate the work and the user oversees them live; users connect their own tools (email, calendar) to feed and act. **HubSpot becomes one optional connector, not the foundation** — so the product sells to anyone, HubSpot shop or not.
+
+What this changes vs. v0.1: the data spine is now the system of record (not a read-through to HubSpot); HubSpot is demoted to a connector; the roster stays the home with light CRM views underneath (contacts/deals/timeline + create/edit). The agents, action/approval spine, trigger layer, and LLM seam are unchanged. The principle holds: **AI owns the system, the human owns the close.** Everything below still describes the agent model and roster, which carry over verbatim.
+
+---
+
 ## 1. Summary
 
 Sales OS is a sales platform where the user does not navigate a sprawl of features — they work with a small team of AI agents, each owning one job in the sales process. It is built as an interface and orchestration layer on top of an existing CRM (HubSpot first), which remains the system of record.

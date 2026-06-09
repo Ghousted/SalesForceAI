@@ -12,7 +12,7 @@ export async function GET() {
   ensureScheduler();
   return NextResponse.json({
     scheduler: schedulerRunning(),
-    triggers: listTriggers(),
-    runs: recentRuns(),
+    triggers: await listTriggers(),
+    runs: await recentRuns(),
   });
 }

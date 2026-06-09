@@ -16,7 +16,7 @@ export default async function RepHome() {
   // The seat to show. With auth this comes from the session; for now it's the
   // configured rep (or the first one in the data).
   const repId = resolveRepId(process.env.SALESOS_REP_ID);
-  const home = buildHomeVM(repId, "rep");
+  const home = await buildHomeVM(repId, "rep");
   const contacts: ContactSummary[] = listContactsForRep(repId).map((c) => {
     const deal = getDealForContact(c.id);
     return {

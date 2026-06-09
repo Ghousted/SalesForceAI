@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function ManagerHome() {
   await ensureSnapshot();
   const repId = resolveRepId(process.env.SALESOS_REP_ID);
-  const home = buildHomeVM(repId, "manager");
+  const home = await buildHomeVM(repId, "manager");
   const contacts: ContactSummary[] = listContactsForRep(repId).map((c) => {
     const deal = getDealForContact(c.id);
     return {

@@ -27,18 +27,18 @@ export async function executeAction(action: AgentAction): Promise<AgentAction> {
         throw new Error(`No executor for action kind "${action.kind}"`);
     }
     return (
-      updateAction(action.id, {
+      (await updateAction(action.id, {
         status: "executed",
         resolvedAt: new Date().toISOString(),
-      }) ?? action
+      })) ?? action
     );
   } catch (err) {
     return (
-      updateAction(action.id, {
+      (await updateAction(action.id, {
         status: "failed",
         resolvedAt: new Date().toISOString(),
         error: err instanceof Error ? err.message : String(err),
-      }) ?? action
+      })) ?? action
     );
   }
 }

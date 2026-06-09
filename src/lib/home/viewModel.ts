@@ -6,7 +6,7 @@ import { sparringStatus } from "@/agents/sparring";
 import { dispatcherStatus } from "@/agents/dispatcher";
 import { analystStatus } from "@/agents/analyst";
 import { coachStatus } from "@/agents/coach";
-import { pendingCount } from "@/lib/actions/store";
+import { pendingCountsByAgent } from "@/lib/actions/store";
 import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
 import { listContactsForRep, getRep } from "@/lib/data/spine";
@@ -39,10 +39,14 @@ const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
   human: { kind: "idle", message: "Your move — the close stays yours" },
 };
 
-function statusForAgent(id: string, repId: string): AgentStatus {
+function statusForAgent(
+  id: string,
+  repId: string,
+  pendingByAgent: Record<string, number>,
+): AgentStatus {
   if (id === "dispatcher") {
     const { newLeads } = dispatcherStatus();
-    const pending = pendingCount("dispatcher");
+    const pending = pendingByAgent["dispatcher"] ?? 0;
     if (pending > 0) {
       return { kind: "needs", message: `${pending} routing${pending === 1 ? "" : "s"} to approve` };
     }
@@ -86,7 +90,7 @@ function statusForAgent(id: string, repId: string): AgentStatus {
     };
   }
   if (id === "scribe") {
-    const drafts = pendingCount("scribe");
+    const drafts = pendingByAgent["scribe"] ?? 0;
     if (drafts > 0) {
       return { kind: "needs", message: `${drafts} follow-up${drafts === 1 ? "" : "s"} to approve` };
     }
@@ -109,14 +113,18 @@ function statusForAgent(id: string, repId: string): AgentStatus {
 
 const WHEN_ORDER: AgentWhen[] = ["before", "call", "after", "behind"];
 
-export function buildHomeVM(repId: string, role: "rep" | "manager"): HomeVM {
+export async function buildHomeVM(
+  repId: string,
+  role: "rep" | "manager",
+): Promise<HomeVM> {
   const rep = getRep(repId);
+  const pendingByAgent = await pendingCountsByAgent();
 
   const groups = WHEN_ORDER.map((when) => ({
     when,
     agents: ROSTER.filter((a) => a.when === when).map((meta) => ({
       meta,
-      status: statusForAgent(meta.id, repId),
+      status: statusForAgent(meta.id, repId, pendingByAgent),
     })),
   })).filter((g) => g.agents.length > 0);
 

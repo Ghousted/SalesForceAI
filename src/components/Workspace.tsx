@@ -298,6 +298,12 @@ export function Workspace({
               </span>
             )}
           </button>
+          <Link href="/contacts" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
+            Contacts
+          </Link>
+          <Link href="/deals" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
+            Deals
+          </Link>
           <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
             <Link
               href="/"

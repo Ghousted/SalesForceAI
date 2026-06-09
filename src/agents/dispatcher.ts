@@ -122,7 +122,7 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
   // Skip leads that already have a routing waiting in the queue — re-running
   // the Dispatcher shouldn't pile up duplicate proposals for the same person.
   const alreadyQueued = new Set(
-    listActions({ pending: true, agentId: "dispatcher" }).map((a) => a.target.id),
+    (await listActions({ pending: true, agentId: "dispatcher" })).map((a) => a.target.id),
   );
 
   for (const contact of newLeads) {
@@ -141,7 +141,7 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
     });
 
     const autonomy = autonomyFor("dispatcher", "assign-owner");
-    let action = addAction({
+    let action = await addAction({
       agentId: "dispatcher",
       kind: "assign-owner",
       title: `Route ${name} → ${owner.name}`,

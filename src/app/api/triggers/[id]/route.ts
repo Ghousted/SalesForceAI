@@ -15,7 +15,7 @@ export async function POST(
   }
 
   if (action === "enable" || action === "disable") {
-    const trigger = setEnabled(id, action === "enable");
+    const trigger = await setEnabled(id, action === "enable");
     if (!trigger) return NextResponse.json({ error: "Unknown trigger" }, { status: 404 });
     return NextResponse.json({ trigger });
   }

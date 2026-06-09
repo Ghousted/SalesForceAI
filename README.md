@@ -1,8 +1,21 @@
 # Sales OS
 
-An agent-based sales platform that sits **on top of** a CRM (HubSpot first) rather than replacing it. The user doesn't navigate a sprawl of features — they work with a small team of named AI agents, each owning one job in the sales process.
+A **standalone, agent-native CRM** — Sales OS owns its data and a small team of named AI agents automate the work (routing, briefs, reconciliation, forecasts, follow-ups), while you oversee them and own the close. Connect your own tools (email, calendar, and **optionally** HubSpot) — HubSpot is a connector, not the foundation.
 
 > **Guiding principle:** AI owns the system, the human owns the close.
+
+> **Pivot note:** v0.1 was a layer *on top of* HubSpot; it's now a standalone CRM with its own system of record (HubSpot demoted to an optional connector). See the v0.2 section in [`PRD.md`](./PRD.md). The agents, automation spine, and triggers are unchanged.
+
+### First run
+
+```bash
+npm install
+npm run db:push     # create tables (local SQLite at .data/salesos.db)
+npm run seed        # load demo data
+npm run dev         # http://localhost:3000
+```
+
+Default `LLM_PROVIDER=stub` runs with no model server. For real local models see "Running with local models" below; for cloud, set `LLM_PROVIDER=openai` (any OpenAI-compatible host) and deploy to Vercel + Turso (libSQL) with a Vercel Cron hitting `/api/triggers/tick` (see `vercel.json`).
 
 See [`PRD.md`](./PRD.md) for the full product definition.
 

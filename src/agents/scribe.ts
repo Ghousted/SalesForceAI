@@ -80,7 +80,7 @@ export async function runScribe(contactId: string): Promise<AgentRunResult<Scrib
     : `Great connecting, ${contact.firstName}`;
   const { subject, body } = splitDraft(raw, fallbackSubject);
 
-  const action = addAction({
+  const action = await addAction({
     agentId: "scribe",
     kind: "send-email",
     title: `Send follow-up to ${prospectName}`,

@@ -58,9 +58,10 @@ export function invalidateSnapshot(): void {
  * HubSpot data it's the real wall clock.
  */
 export function spineNow(): Date {
-  return activeSource() === "hubspot"
-    ? new Date()
-    : new Date("2026-06-08T12:00:00Z");
+  // Only the offline synthetic demo is date-anchored; real data uses real time.
+  return activeSource() === "synthetic"
+    ? new Date("2026-06-08T12:00:00Z")
+    : new Date();
 }
 
 /** Resolve a usable rep id: the preferred one if present, else the first. */
@@ -92,6 +93,10 @@ export function listAllContacts(): Contact[] {
 
 export function getCompany(id: string): Company | undefined {
   return getSnapshot().companies.find((c) => c.id === id);
+}
+
+export function listAllCompanies(): Company[] {
+  return getSnapshot().companies;
 }
 
 export function getDeal(id: string): Deal | undefined {
