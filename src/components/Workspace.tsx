@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { ScoutBrief } from "@/agents/scout";
 import type { AuditReport } from "@/agents/auditor";
 import type { Forecast } from "@/agents/forecaster";
+import type { DispatchReport } from "@/agents/dispatcher";
 import type { AgentRunResult } from "@/agents/types";
+import type { AgentAction } from "@/lib/actions/types";
 import { WHEN_LABELS } from "@/agents/types";
 import type { HomeVM } from "@/lib/home/viewModel";
 import { AgentCard } from "./AgentCard";
@@ -14,6 +16,7 @@ import { ScoutBriefView } from "./ScoutBriefView";
 import { AuditReportView } from "./AuditReportView";
 import { ForecastView } from "./ForecastView";
 import { SparSession } from "./SparSession";
+import { ActionList } from "./ActionList";
 
 export interface ContactSummary {
   id: string;
@@ -37,6 +40,46 @@ export function Workspace({
   const [pickMode, setPickMode] = useState<"scout" | "spar">("scout");
   const [sparContact, setSparContact] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [pending, setPending] = useState<AgentAction[]>([]);
+  const [inboxOpen, setInboxOpen] = useState(false);
+
+  const refreshPending = useCallback(async () => {
+    try {
+      const res = await fetch("/api/actions?status=pending");
+      const data = await res.json();
+      setPending((data.actions ?? []) as AgentAction[]);
+    } catch {
+      /* inbox stays as-is */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPending();
+  }, [refreshPending]);
+
+  async function runDispatcher() {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await fetch("/api/dispatcher", { method: "POST" });
+      const data = (await res.json()) as
+        | AgentRunResult<DispatchReport>
+        | { error: string };
+      if ("error" in data) setNote(data.error);
+      else setNote(data.data.message);
+      await refreshPending();
+      setInboxOpen(true);
+    } catch {
+      setNote("Couldn't reach the Dispatcher.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onActionResolved(updated: AgentAction) {
+    // Drop it from the pending list once it's no longer awaiting approval.
+    setPending((prev) => prev.filter((a) => a.id !== updated.id));
+  }
 
   async function scoutFor(contactId: string) {
     setBusy(true);
@@ -140,6 +183,7 @@ export function Workspace({
     }
     if (id === "auditor") runAudit();
     if (id === "forecaster") runForecast();
+    if (id === "dispatcher") runDispatcher();
   }
 
   return (
@@ -157,20 +201,33 @@ export function Workspace({
             </div>
           </div>
         </div>
-        <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
-          <Link
-            href="/"
-            className={`rounded-md px-3 py-1 font-medium ${home.role === "rep" ? "bg-white shadow-sm" : "text-slate-500"}`}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setInboxOpen(true)}
+            className="relative rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300"
           >
-            Rep
-          </Link>
-          <Link
-            href="/manager"
-            className={`rounded-md px-3 py-1 font-medium ${home.role === "manager" ? "bg-white shadow-sm" : "text-slate-500"}`}
-          >
-            Manager
-          </Link>
-        </nav>
+            Inbox
+            {pending.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {pending.length}
+              </span>
+            )}
+          </button>
+          <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+            <Link
+              href="/"
+              className={`rounded-md px-3 py-1 font-medium ${home.role === "rep" ? "bg-white shadow-sm" : "text-slate-500"}`}
+            >
+              Rep
+            </Link>
+            <Link
+              href="/manager"
+              className={`rounded-md px-3 py-1 font-medium ${home.role === "manager" ? "bg-white shadow-sm" : "text-slate-500"}`}
+            >
+              Manager
+            </Link>
+          </nav>
+        </div>
       </header>
 
       {/* Greeting + command bar */}
@@ -294,6 +351,31 @@ export function Workspace({
             contactId={sparContact}
             onClose={() => setSparContact(null)}
           />
+        </Overlay>
+      )}
+
+      {/* Action inbox — approve/reject what agents propose */}
+      {inboxOpen && (
+        <Overlay onClose={() => setInboxOpen(false)} title="Inbox · needs you" wide>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-slate-500">
+                Agents propose; you decide. Approving runs the change against your CRM.
+              </p>
+              <button
+                onClick={runDispatcher}
+                disabled={busy}
+                className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40 enabled:hover:bg-slate-900"
+              >
+                {busy ? "Scanning…" : "Scan for new leads"}
+              </button>
+            </div>
+            <ActionList
+              actions={pending}
+              onResolved={onActionResolved}
+              emptyLabel="Nothing waiting on you. Run an agent to generate work."
+            />
+          </div>
         </Overlay>
       )}
     </div>

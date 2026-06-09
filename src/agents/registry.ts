@@ -20,7 +20,7 @@ export const ROSTER: AgentMeta[] = [
     humanInLoop: "Manager can override",
     mustHave: false,
     phase: 2,
-    implemented: false,
+    implemented: true,
   },
   {
     id: "scout",

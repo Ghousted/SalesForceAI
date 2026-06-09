@@ -291,6 +291,34 @@ async function loadActivities(): Promise<Activity[]> {
   return all;
 }
 
+// --- writes (gated; see src/lib/actions) ------------------------------------
+
+async function hubspotPatch(
+  object: string,
+  id: string,
+  properties: Record<string, string>,
+): Promise<void> {
+  const res = await fetch(`${BASE}/crm/v3/objects/${object}/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ properties }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `HubSpot PATCH ${object}/${id} → ${res.status}: ${body.slice(0, 200)}`,
+    );
+  }
+}
+
+/** Assign a contact to an owner. Needs the `crm.objects.contacts.write` scope. */
+export async function hubspotSetContactOwner(
+  contactId: string,
+  ownerId: string,
+): Promise<void> {
+  await hubspotPatch("contacts", contactId, { hubspot_owner_id: ownerId });
+}
+
 /** Fetch the full snapshot from HubSpot. Throws on any API failure. */
 export async function fetchHubSpotSnapshot(): Promise<CrmSnapshot> {
   if (!hubspotConfigured()) {

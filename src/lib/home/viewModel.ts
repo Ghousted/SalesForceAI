@@ -3,6 +3,8 @@ import { scoutStatus } from "@/agents/scout";
 import { auditorStatus } from "@/agents/auditor";
 import { forecasterStatus } from "@/agents/forecaster";
 import { sparringStatus } from "@/agents/sparring";
+import { dispatcherStatus } from "@/agents/dispatcher";
+import { pendingCount } from "@/lib/actions/store";
 import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
 import { listContactsForRep, getRep } from "@/lib/data/spine";
@@ -32,7 +34,6 @@ export interface HomeVM {
 // Representative push statuses for not-yet-runnable agents, so the team reads
 // as alive. Clearly placeholders — paired with the "upcoming" tag in the UI.
 const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
-  dispatcher: { kind: "done", message: "Routing rules ready (Phase 2)" },
   human: { kind: "idle", message: "Your move — the close stays yours" },
   analyst: { kind: "idle", message: "Activates after your next call (Phase 2)" },
   scribe: { kind: "idle", message: "Drafts follow-ups on request (Phase 2)" },
@@ -40,6 +41,17 @@ const PLACEHOLDER_STATUS: Record<string, AgentStatus> = {
 };
 
 function statusForAgent(id: string, repId: string): AgentStatus {
+  if (id === "dispatcher") {
+    const { newLeads } = dispatcherStatus();
+    const pending = pendingCount("dispatcher");
+    if (pending > 0) {
+      return { kind: "needs", message: `${pending} routing${pending === 1 ? "" : "s"} to approve` };
+    }
+    if (newLeads > 0) {
+      return { kind: "needs", message: `${newLeads} new lead${newLeads === 1 ? "" : "s"} to route` };
+    }
+    return { kind: "done", message: "All leads routed" };
+  }
   if (id === "scout") {
     const { count, needsAttention } = scoutStatus(repId);
     if (needsAttention > 0) {

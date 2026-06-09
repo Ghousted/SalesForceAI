@@ -75,6 +75,16 @@ npm run dev
 
 A single `llama-server` ignores the per-request model name and serves whatever's loaded, so all four agents use the one 3B. Move to a bigger box → switch to llama-swap and point the tiers at different models; no code changes.
 
+## Automation (action spine + Dispatcher)
+
+Agents don't just report — they propose actions that, with approval, write to the CRM. The spine (`src/lib/actions/`) is agent-agnostic:
+
+- **Queue** — every proposed action lands in `src/lib/actions/store.ts`; the header **Inbox** is the approval UI.
+- **Policy** (`policy.ts`) — per-agent autonomy: `ask` (propose → one-tap approve, default) or `auto` (act without asking, e.g. `AUTONOMY_DISPATCHER=auto`). External sends (`send-email`) are always `ask` — *the human owns the close*.
+- **Executor + gated writes** (`executor.ts`, `src/lib/data/writes.ts`) — approved actions run against HubSpot (live) or the in-memory pack (synthetic); failures are captured on the action, never crash.
+
+**Dispatcher** is the first automated agent: it finds unassigned leads, scores + routes each to the least-loaded rep, and queues an `assign-owner` action. Approving it sets the contact's owner in HubSpot — which needs the **`crm.objects.contacts.write`** scope on your token.
+
 ## Live data (HubSpot, read-only)
 
 The app defaults to the synthetic pack. To run against a live HubSpot CRM:

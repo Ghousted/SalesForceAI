@@ -42,6 +42,13 @@ interface AgentModelSpec {
  * believable, varied dialogue.
  */
 const AGENT_SPECS: Record<string, AgentModelSpec> = {
+  dispatcher: {
+    tier: "fast",
+    temperature: 0.2,
+    maxTokens: 80,
+    reason:
+      "A one-line routing rationale — a small fast model is plenty and keeps lead triage cheap at volume.",
+  },
   scout: {
     tier: "worker",
     temperature: 0.3,

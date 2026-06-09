@@ -47,6 +47,11 @@ function getSnapshot(): CrmSnapshot {
   return cache?.snapshot ?? SYNTHETIC_SNAPSHOT;
 }
 
+/** Drop the cache so the next `ensureSnapshot()` refetches — call after a write. */
+export function invalidateSnapshot(): void {
+  cache = null;
+}
+
 /**
  * "Now" for the platform. For the synthetic pack it's anchored to that pack's
  * today (2026-06-08) so date math is deterministic in demos; against live
