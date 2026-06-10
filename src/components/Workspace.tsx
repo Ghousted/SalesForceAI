@@ -304,6 +304,12 @@ export function Workspace({
           <Link href="/deals" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
             Deals
           </Link>
+          <Link href="/oversight" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
+            Oversight
+          </Link>
+          <Link href="/agents" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
+            Agents
+          </Link>
           <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
             <Link
               href="/"

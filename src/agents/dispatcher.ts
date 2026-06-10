@@ -10,6 +10,7 @@ import { daysBetween } from "@/lib/format";
 import { getLLM } from "@/lib/llm/provider";
 import { addAction, listActions } from "@/lib/actions/store";
 import { autonomyFor } from "@/lib/actions/policy";
+import { ensureAgentConfig } from "@/lib/agents/config";
 import { executeAction } from "@/lib/actions/executor";
 import type { AgentAction } from "@/lib/actions/types";
 import type { AgentRunResult } from "./types";
@@ -98,6 +99,7 @@ function leastLoadedRep(): { id: string; name: string } | undefined {
 }
 
 export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
+  await ensureAgentConfig(); // so autonomyFor sees per-agent overrides
   // "New" leads = contacts with no owner yet.
   const newLeads = listAllContacts().filter((c) => !c.ownerRepId);
   const owner = leastLoadedRep();

@@ -7,6 +7,7 @@ import { dispatcherStatus } from "@/agents/dispatcher";
 import { analystStatus } from "@/agents/analyst";
 import { coachStatus } from "@/agents/coach";
 import { pendingCountsByAgent } from "@/lib/actions/store";
+import { ensureAgentConfig, agentDisplayName, agentEnabled } from "@/lib/agents/config";
 import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
 import { listContactsForRep, getRep } from "@/lib/data/spine";
@@ -24,6 +25,8 @@ import { listContactsForRep, getRep } from "@/lib/data/spine";
 export interface AgentCardVM {
   meta: AgentMeta;
   status: AgentStatus;
+  displayName: string;
+  enabled: boolean;
 }
 
 export interface HomeVM {
@@ -119,12 +122,18 @@ export async function buildHomeVM(
 ): Promise<HomeVM> {
   const rep = getRep(repId);
   const pendingByAgent = await pendingCountsByAgent();
+  await ensureAgentConfig();
 
   const groups = WHEN_ORDER.map((when) => ({
     when,
     agents: ROSTER.filter((a) => a.when === when).map((meta) => ({
       meta,
-      status: statusForAgent(meta.id, repId, pendingByAgent),
+      status:
+        meta.id !== "human" && !agentEnabled(meta.id)
+          ? { kind: "idle" as const, message: "Paused" }
+          : statusForAgent(meta.id, repId, pendingByAgent),
+      displayName: meta.id === "human" ? meta.name : agentDisplayName(meta.id),
+      enabled: meta.id === "human" ? true : agentEnabled(meta.id),
     })),
   })).filter((g) => g.agents.length > 0);
 

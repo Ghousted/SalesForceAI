@@ -16,9 +16,10 @@ export function AgentCard({
   vm: AgentCardVM;
   onOpen?: (id: string) => void;
 }) {
-  const { meta, status } = vm;
+  const { meta, status, displayName, enabled } = vm;
   const isHuman = meta.side === "human";
-  const clickable = meta.implemented;
+  const clickable = meta.implemented && enabled;
+  const renamed = displayName !== meta.name;
 
   return (
     <button
@@ -30,6 +31,7 @@ export function AgentCard({
         isHuman
           ? "border-rose-200 bg-rose-50"
           : "border-[var(--border)] bg-white",
+        !enabled ? "opacity-55" : "",
         clickable
           ? "cursor-pointer hover:border-indigo-300 hover:shadow-sm"
           : "cursor-default",
@@ -39,8 +41,11 @@ export function AgentCard({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold text-[var(--foreground)]">
-              {meta.name}
+              {displayName}
             </h3>
+            {renamed && (
+              <span className="text-[10px] font-medium text-slate-400">{meta.name}</span>
+            )}
             {meta.mustHave && (
               <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
                 Must-have

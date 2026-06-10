@@ -6,6 +6,7 @@ import { runDispatcher, dispatcherStatus } from "@/agents/dispatcher";
 import { runAuditor } from "@/agents/auditor";
 import { runForecaster } from "@/agents/forecaster";
 import { php } from "@/lib/format";
+import { ensureAgentConfig, agentEnabled } from "@/lib/agents/config";
 import { TRIGGERS, getTriggerDef } from "./registry";
 import type { TriggerDef, TriggerRun, TriggerView } from "./types";
 
@@ -92,8 +93,10 @@ export async function tick(force = false): Promise<TriggerRun[]> {
   local.ticking = true;
   const fired: TriggerRun[] = [];
   try {
+    await ensureAgentConfig();
     const now = Date.now();
     for (const def of TRIGGERS) {
+      if (!agentEnabled(def.agentId)) continue; // a paused agent doesn't fire
       const st = await getState(def);
       if (!st.enabled) continue;
       const due = force || !st.lastRunAt || now - Date.parse(st.lastRunAt) >= def.intervalMs;

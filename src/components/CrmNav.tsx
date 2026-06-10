@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 /** Shared top nav for the CRM surfaces (Team roster + light CRM views). */
-export function CrmNav({ active }: { active: "team" | "contacts" | "deals" }) {
+export function CrmNav({
+  active,
+}: {
+  active: "team" | "contacts" | "deals" | "agents" | "oversight";
+}) {
   const link = (href: string, label: string, key: string) => (
     <Link
       href={href}
@@ -24,6 +28,8 @@ export function CrmNav({ active }: { active: "team" | "contacts" | "deals" }) {
         {link("/", "Team", "team")}
         {link("/contacts", "Contacts", "contacts")}
         {link("/deals", "Deals", "deals")}
+        {link("/oversight", "Oversight", "oversight")}
+        {link("/agents", "Agents", "agents")}
       </nav>
     </header>
   );

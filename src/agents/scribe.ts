@@ -2,6 +2,7 @@ import { buildDossier, getRep } from "@/lib/data/spine";
 import { getLLM } from "@/lib/llm/provider";
 import { addAction } from "@/lib/actions/store";
 import { autonomyFor } from "@/lib/actions/policy";
+import { ensureAgentConfig } from "@/lib/agents/config";
 import { describeDelivery } from "@/lib/email/send";
 import type { AgentAction } from "@/lib/actions/types";
 import type { AgentRunResult } from "./types";
@@ -39,6 +40,7 @@ function splitDraft(raw: string, fallbackSubject: string): { subject: string; bo
 }
 
 export async function runScribe(contactId: string): Promise<AgentRunResult<ScribeDraft>> {
+  await ensureAgentConfig(); // so autonomyFor sees per-agent overrides
   const dossier = buildDossier(contactId);
   if (!dossier) throw new Error(`Scribe: no contact ${contactId}`);
 

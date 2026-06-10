@@ -111,6 +111,16 @@ export const triggerRuns = sqliteTable("trigger_runs", {
   actionsCreated: integer("actions_created"),
 });
 
+// --- agent configuration (Phase D) -----------------------------------------
+
+export const agentConfig = sqliteTable("agent_config", {
+  id: text("id").primaryKey(), // agentId (single-workspace for now)
+  workspaceId: text("workspace_id").notNull(),
+  displayName: text("display_name"), // null → registry name
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  autonomy: text("autonomy"), // "ask" | "auto" | null → policy default
+});
+
 // --- connectors (stub for Phase B) -----------------------------------------
 
 export const connectorCredentials = sqliteTable("connector_credentials", {

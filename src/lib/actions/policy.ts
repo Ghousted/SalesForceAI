@@ -1,3 +1,4 @@
+import { agentAutonomyOverride } from "@/lib/agents/config";
 import type { ActionKind, Autonomy } from "./types";
 
 /**
@@ -15,6 +16,9 @@ const ALWAYS_ASK: ActionKind[] = ["send-email"];
 
 export function autonomyFor(agentId: string, kind: ActionKind): Autonomy {
   if (ALWAYS_ASK.includes(kind)) return "ask";
+  // UI override (per-agent config) wins, then env, then the safe default.
+  const override = agentAutonomyOverride(agentId);
+  if (override) return override;
   const env = process.env[`AUTONOMY_${agentId.toUpperCase().replace(/-/g, "_")}`];
   return env?.toLowerCase() === "auto" ? "auto" : "ask";
 }
