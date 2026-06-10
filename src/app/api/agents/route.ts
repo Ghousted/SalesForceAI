@@ -5,7 +5,8 @@ export async function GET() {
   return NextResponse.json({ agents: await listAgentConfigs() });
 }
 
-// PATCH { id, displayName?, enabled?, autonomy? }  — autonomy "default" clears the override.
+// PATCH { id, displayName?, enabled?, autonomy?, funnel? }
+//   autonomy "default" clears the override; funnel { segment, routeTo }.
 export async function PATCH(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body?.id) return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -15,10 +16,18 @@ export async function PATCH(req: Request) {
       : body.autonomy === "default"
         ? null
         : (body.autonomy as "ask" | "auto");
+  const funnel =
+    body.funnel === undefined
+      ? undefined
+      : {
+          segment: String(body.funnel?.segment ?? "all"),
+          routeTo: String(body.funnel?.routeTo ?? "auto"),
+        };
   await setAgentConfig(body.id, {
     displayName: body.displayName,
     enabled: body.enabled,
     autonomy,
+    funnel,
   });
   return NextResponse.json({ ok: true });
 }

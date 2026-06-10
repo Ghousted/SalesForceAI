@@ -2,6 +2,8 @@ import { auditBook } from "./auditor";
 import { spineNow } from "@/lib/data/spine";
 import { getLLM } from "@/lib/llm/provider";
 import { php, formatDate } from "@/lib/format";
+import { ensureAgentConfig } from "@/lib/agents/config";
+import { dealMatchesFunnel } from "@/lib/agents/funnel";
 import type { AgentRunResult } from "./types";
 
 /**
@@ -120,6 +122,7 @@ function summariseMonth(month: string, label: string, lines: ForecastLine[]): Mo
 export async function runForecaster(
   repId?: string,
 ): Promise<AgentRunResult<Forecast>> {
+  await ensureAgentConfig(); // so the funnel segment is honored
   const now = spineNow();
   const targetMonth = now.toISOString().slice(0, 7);
   const targetMonthLabel = now.toLocaleDateString("en-PH", {
@@ -128,7 +131,7 @@ export async function runForecaster(
   });
 
   // Open deals only, carrying the Auditor's evidence-based confidence.
-  const audits = auditBook(repId).filter(
+  const audits = auditBook(repId, dealMatchesFunnel("forecaster")).filter(
     (d) => !CLOSED_STAGES.has(stageKeyFromLabel(d.stageLabel)),
   );
 

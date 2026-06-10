@@ -2,20 +2,40 @@
 
 import { useState } from "react";
 
+export interface AgentFunnelRow {
+  segment: string;
+  routeTo: string;
+}
+
 export interface AgentConfigRow {
   id: string;
   registryName: string;
   displayName: string;
   enabled: boolean;
   autonomy: string; // "default" | "ask" | "auto"
+  funnel: AgentFunnelRow;
   plainDescription: string;
   when: string;
 }
 
+export interface FunnelOptions {
+  reps: { id: string; name: string }[];
+  stages: { value: string; label: string }[];
+}
+
 // Which agents actually produce writes (autonomy is meaningful for these).
 const HAS_ACTIONS = new Set(["dispatcher", "scribe"]);
+// Which agents can be routed to a destination vs. scoped to a segment.
+const ROUTE_AGENTS = new Set(["dispatcher"]);
+const SEGMENT_AGENTS = new Set(["auditor", "forecaster"]);
 
-export function AgentSettings({ initial }: { initial: AgentConfigRow[] }) {
+export function AgentSettings({
+  initial,
+  options,
+}: {
+  initial: AgentConfigRow[];
+  options: FunnelOptions;
+}) {
   const [rows, setRows] = useState(initial);
 
   async function patch(id: string, body: Record<string, unknown>) {
@@ -29,6 +49,12 @@ export function AgentSettings({ initial }: { initial: AgentConfigRow[] }) {
   function update(id: string, patchLocal: Partial<AgentConfigRow>, body: Record<string, unknown>) {
     setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patchLocal } : x)));
     void patch(id, body);
+  }
+
+  function setFunnel(id: string, next: Partial<AgentFunnelRow>) {
+    const row = rows.find((x) => x.id === id);
+    const funnel = { ...(row?.funnel ?? { segment: "all", routeTo: "auto" }), ...next };
+    update(id, { funnel }, { funnel });
   }
 
   return (
@@ -54,6 +80,45 @@ export function AgentSettings({ initial }: { initial: AgentConfigRow[] }) {
                 <span className="text-[11px] uppercase tracking-wide text-slate-400">{a.registryName}</span>
               </div>
               <p className="mt-1 text-xs text-slate-500">{a.plainDescription}</p>
+
+              {/* Funnel — where this agent acts */}
+              {ROUTE_AGENTS.has(a.id) && (
+                <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                  <span className="shrink-0">Route new leads to</span>
+                  <select
+                    value={a.funnel.routeTo}
+                    onChange={(e) => setFunnel(a.id, { routeTo: e.target.value })}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 outline-none focus:border-indigo-300"
+                  >
+                    <option value="auto">whoever has capacity</option>
+                    {options.reps.map((r) => (
+                      <option key={r.id} value={`rep:${r.id}`}>{r.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {SEGMENT_AGENTS.has(a.id) && (
+                <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                  <span className="shrink-0">Watches</span>
+                  <select
+                    value={a.funnel.segment}
+                    onChange={(e) => setFunnel(a.id, { segment: e.target.value })}
+                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 outline-none focus:border-indigo-300"
+                  >
+                    <option value="all">the whole book</option>
+                    <optgroup label="A rep's book">
+                      {options.reps.map((r) => (
+                        <option key={r.id} value={`rep:${r.id}`}>{r.name}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="A pipeline stage">
+                      {options.stages.map((s) => (
+                        <option key={s.value} value={`stage:${s.value}`}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </label>
+              )}
             </div>
 
             {/* Autonomy — only for agents that propose writes */}

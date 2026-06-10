@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { recentRuns, schedulerRunning } from "@/lib/triggers/runner";
 import { listActions } from "@/lib/actions/store";
-import { ensureAgentConfig, agentDisplayName, agentEnabled } from "@/lib/agents/config";
+import { ensureAgentConfig, agentDisplayName, agentEnabled, agentFunnel } from "@/lib/agents/config";
+import { describeFunnel, supportsFunnel } from "@/lib/agents/funnel";
+import { ensureSnapshot } from "@/lib/data/spine";
 import { ROSTER } from "@/agents/registry";
 
 /** What the agents are doing — a merged feed of trigger runs + proposed/executed actions. */
 export async function GET() {
-  await ensureAgentConfig();
+  await Promise.all([ensureAgentConfig(), ensureSnapshot()]);
   const [runs, actions] = await Promise.all([recentRuns(30), listActions()]);
 
   const feed = [
@@ -34,6 +36,7 @@ export async function GET() {
     enabled: agentEnabled(a.id),
     pending: pending[a.id] ?? 0,
     lastRunAt: lastRun[a.id] ?? null,
+    lane: supportsFunnel(a.id) ? describeFunnel(a.id, agentFunnel(a.id)) : null,
   }));
 
   return NextResponse.json({ scheduler: schedulerRunning(), agents, feed });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-interface AgentRow { id: string; name: string; enabled: boolean; pending: number; lastRunAt: string | null }
+interface AgentRow { id: string; name: string; enabled: boolean; pending: number; lastRunAt: string | null; lane: string | null }
 interface FeedItem { id: string; kind: "run" | "action"; agentId: string; agentName: string; at: string; label: string; status: string }
 interface Data { scheduler: boolean; agents: AgentRow[]; feed: FeedItem[] }
 
@@ -62,6 +62,7 @@ export function OversightView() {
             <div className="mt-1 text-[11px] text-slate-400">
               {a.enabled ? (a.lastRunAt ? `ran ${timeAgo(a.lastRunAt)}` : "idle") : "paused"}
             </div>
+            {a.lane && <div className="mt-0.5 truncate text-[11px] text-indigo-400" title={a.lane}>{a.lane}</div>}
           </div>
         ))}
       </div>

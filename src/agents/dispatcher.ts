@@ -11,6 +11,7 @@ import { getLLM } from "@/lib/llm/provider";
 import { addAction, listActions } from "@/lib/actions/store";
 import { autonomyFor } from "@/lib/actions/policy";
 import { ensureAgentConfig } from "@/lib/agents/config";
+import { routeTargetRep } from "@/lib/agents/funnel";
 import { executeAction } from "@/lib/actions/executor";
 import type { AgentAction } from "@/lib/actions/types";
 import type { AgentRunResult } from "./types";
@@ -102,7 +103,8 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
   await ensureAgentConfig(); // so autonomyFor sees per-agent overrides
   // "New" leads = contacts with no owner yet.
   const newLeads = listAllContacts().filter((c) => !c.ownerRepId);
-  const owner = leastLoadedRep();
+  // Funnel: route to the pinned rep if one is configured, else least-loaded.
+  const owner = routeTargetRep("dispatcher") ?? leastLoadedRep();
 
   if (newLeads.length === 0 || !owner) {
     const message = !owner

@@ -9,10 +9,35 @@ import { getAgentMeta, ROSTER } from "@/agents/registry";
  * like the data snapshot) so the policy engine and roster read synchronously.
  */
 
+/**
+ * A funnel is the lane an agent works in: which slice of the book it watches
+ * (`segment`) and, for routing agents, where it sends what it produces
+ * (`routeTo`). Tokens are interpreted in `./funnel.ts`.
+ *   segment: "all" | "rep:<repId>" | "stage:<dealStage>"
+ *   routeTo: "auto" | "rep:<repId>"
+ */
+export interface AgentFunnel {
+  segment: string;
+  routeTo: string;
+}
+
+export const DEFAULT_FUNNEL: AgentFunnel = { segment: "all", routeTo: "auto" };
+
 export interface AgentCfg {
   displayName?: string;
   enabled: boolean;
   autonomy?: "ask" | "auto";
+  funnel?: AgentFunnel;
+}
+
+function parseFunnel(raw: string | null): AgentFunnel | undefined {
+  if (!raw) return undefined;
+  try {
+    const f = JSON.parse(raw) as Partial<AgentFunnel>;
+    return { segment: f.segment || "all", routeTo: f.routeTo || "auto" };
+  } catch {
+    return undefined;
+  }
 }
 
 const WS = DEFAULT_WORKSPACE_ID;
@@ -32,6 +57,7 @@ export async function ensureAgentConfig(): Promise<void> {
         displayName: r.displayName ?? undefined,
         enabled: r.enabled,
         autonomy: (r.autonomy as "ask" | "auto" | null) ?? undefined,
+        funnel: parseFunnel(r.funnel),
       };
     }
     g.__salesosAgentCfg = { map, at: Date.now() };
@@ -53,16 +79,27 @@ export function agentEnabled(agentId: string): boolean {
 export function agentAutonomyOverride(agentId: string): "ask" | "auto" | undefined {
   return cfg(agentId).autonomy;
 }
+export function agentFunnel(agentId: string): AgentFunnel {
+  return cfg(agentId).funnel ?? DEFAULT_FUNNEL;
+}
 
 export async function setAgentConfig(
   agentId: string,
-  patch: { displayName?: string; enabled?: boolean; autonomy?: "ask" | "auto" | null },
+  patch: {
+    displayName?: string;
+    enabled?: boolean;
+    autonomy?: "ask" | "auto" | null;
+    funnel?: AgentFunnel | null;
+  },
 ): Promise<void> {
   const existing = await db.select().from(t.agentConfig).where(eq(t.agentConfig.id, agentId));
+  const funnelJson =
+    patch.funnel === undefined ? undefined : patch.funnel ? JSON.stringify(patch.funnel) : null;
   const set = {
     ...(patch.displayName !== undefined ? { displayName: patch.displayName || null } : {}),
     ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
     ...(patch.autonomy !== undefined ? { autonomy: patch.autonomy } : {}),
+    ...(funnelJson !== undefined ? { funnel: funnelJson } : {}),
   };
   if (existing[0]) {
     await db.update(t.agentConfig).set(set).where(eq(t.agentConfig.id, agentId));
@@ -72,6 +109,7 @@ export async function setAgentConfig(
       displayName: patch.displayName ?? null,
       enabled: patch.enabled ?? true,
       autonomy: patch.autonomy ?? null,
+      funnel: funnelJson ?? null,
     });
   }
   g.__salesosAgentCfg = null; // invalidate
@@ -86,6 +124,7 @@ export async function listAgentConfigs() {
     displayName: agentDisplayName(a.id),
     enabled: agentEnabled(a.id),
     autonomy: agentAutonomyOverride(a.id) ?? "default",
+    funnel: agentFunnel(a.id),
     plainDescription: a.plainDescription,
     when: a.when,
     implemented: a.implemented,

@@ -8,6 +8,8 @@ import {
 import { DEAL_STAGE_LABELS, type Activity, type Deal } from "@/lib/data/types";
 import { getLLM } from "@/lib/llm/provider";
 import { php, formatDate, daysBetween } from "@/lib/format";
+import { ensureAgentConfig } from "@/lib/agents/config";
+import { dealMatchesFunnel } from "@/lib/agents/funnel";
 import type { AgentRunResult, EvidenceRef } from "./types";
 
 /**
@@ -256,8 +258,12 @@ function auditDeal(deal: Deal): DealAudit {
  * audits. Shared with the Forecaster, which builds on each deal's
  * evidence-based confidence.
  */
-export function auditBook(repId?: string): DealAudit[] {
-  const deals = repId ? listDealsForRep(repId) : listAllDeals();
+export function auditBook(
+  repId?: string,
+  dealFilter?: (d: Deal) => boolean,
+): DealAudit[] {
+  let deals = repId ? listDealsForRep(repId) : listAllDeals();
+  if (dealFilter) deals = deals.filter(dealFilter);
   return deals.map(auditDeal);
 }
 
@@ -267,7 +273,8 @@ export function auditBook(repId?: string): DealAudit[] {
 export async function runAuditor(
   repId?: string,
 ): Promise<AgentRunResult<AuditReport>> {
-  const audits = auditBook(repId);
+  await ensureAgentConfig(); // so the funnel segment is honored
+  const audits = auditBook(repId, dealMatchesFunnel("auditor"));
 
   const totalFlags = audits.reduce((s, d) => s + d.flags.length, 0);
   const highSeverity = audits.reduce(

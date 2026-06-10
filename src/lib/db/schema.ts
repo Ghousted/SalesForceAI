@@ -119,6 +119,7 @@ export const agentConfig = sqliteTable("agent_config", {
   displayName: text("display_name"), // null → registry name
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   autonomy: text("autonomy"), // "ask" | "auto" | null → policy default
+  funnel: text("funnel"), // JSON {segment, routeTo} — where the agent acts; null → default lane
 });
 
 // --- connectors (stub for Phase B) -----------------------------------------
