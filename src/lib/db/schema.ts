@@ -16,6 +16,8 @@ export const workspaces = sqliteTable("workspaces", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   createdAt: text("created_at").notNull(),
+  // Getting-started guide state: JSON {dismissed?: bool, manual?: string[]}.
+  setupState: text("setup_state"),
 });
 
 export const reps = sqliteTable("reps", {
@@ -71,6 +73,7 @@ export const activities = sqliteTable("activities", {
   direction: text("direction"), // "inbound" | "outbound" | null
   subject: text("subject").notNull(),
   body: text("body").notNull().default(""),
+  actorId: text("actor_id"), // agent id that created it; null → human
 });
 
 // --- automation state (was in-memory globalThis stores) --------------------
@@ -120,6 +123,40 @@ export const agentConfig = sqliteTable("agent_config", {
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   autonomy: text("autonomy"), // "ask" | "auto" | null → policy default
   funnel: text("funnel"), // JSON {segment, routeTo} — where the agent acts; null → default lane
+});
+
+// --- auth (users + sessions) ------------------------------------------------
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  workspaceId: text("workspace_id").notNull(),
+  email: text("email").notNull(), // unique (enforced in app)
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(), // scrypt: salt:hash
+  repId: text("rep_id"), // optional seat in the book
+  role: text("role").notNull().default("rep"), // "rep" | "manager"
+  // Has this user been through the post-signup welcome flow?
+  welcomeDone: integer("welcome_done", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+});
+
+export const invites = sqliteTable("invites", {
+  id: text("id").primaryKey(), // opaque token (also the invite-link value)
+  workspaceId: text("workspace_id").notNull(),
+  email: text("email"), // optional: lock the invite to one address
+  role: text("role").notNull().default("rep"), // "rep" | "manager"
+  invitedBy: text("invited_by").notNull(), // userId of the inviter
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  acceptedBy: text("accepted_by"), // userId once redeemed (single-use)
+});
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(), // opaque token (also the cookie value)
+  userId: text("user_id").notNull(),
+  workspaceId: text("workspace_id").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
 });
 
 // --- connectors (stub for Phase B) -----------------------------------------

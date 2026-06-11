@@ -11,7 +11,7 @@ function Section({
 }) {
   return (
     <div>
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ash/70">
         {title}
       </h4>
       {children}
@@ -32,19 +32,19 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
         </p>
         {brief.dealHeadline && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-700">
+            <span className="rounded-md bg-ember-smoke px-2 py-1 font-medium text-ember">
               {brief.dealHeadline}
             </span>
             {brief.stageLabel && (
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-600">
+              <span className="rounded-md bg-ash/10 px-2 py-1 text-ash">
                 {brief.stageLabel}
               </span>
             )}
             {brief.amountLabel && (
-              <span className="text-slate-500">{brief.amountLabel}</span>
+              <span className="text-ash">{brief.amountLabel}</span>
             )}
             {brief.expectedClose && (
-              <span className="text-slate-400">
+              <span className="text-ash/70">
                 · target close {brief.expectedClose}
               </span>
             )}
@@ -54,7 +54,7 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
 
       {/* Narrative (the LLM-seam output) */}
       <Section title="The short version">
-        <p className="rounded-lg bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+        <p className="rounded-lg bg-obsidian p-3 text-sm leading-relaxed text-ash">
           {brief.narrative}
         </p>
       </Section>
@@ -66,9 +66,9 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
             {brief.signals.map((s, i) => (
               <li
                 key={i}
-                className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+                className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400"
               >
-                <span className="mt-0.5 text-amber-500">●</span>
+                <span className="mt-0.5 text-amber-400">●</span>
                 <span>{s.text}</span>
               </li>
             ))}
@@ -80,8 +80,8 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
       <Section title="Talking points">
         <ul className="space-y-1.5">
           {brief.talkingPoints.map((p, i) => (
-            <li key={i} className="flex gap-2 text-sm text-slate-700">
-              <span className="text-indigo-400">→</span>
+            <li key={i} className="flex gap-2 text-sm text-ash">
+              <span className="text-ember">→</span>
               <span>{p}</span>
             </li>
           ))}
@@ -91,7 +91,7 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
       {/* Open risk */}
       {brief.openRisk && (
         <Section title="Watch out">
-          <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-400">
             {brief.openRisk}
           </p>
         </Section>
@@ -99,24 +99,24 @@ export function ScoutBriefView({ brief }: { brief: ScoutBrief }) {
 
       {/* Timeline */}
       <Section title="What's happened so far">
-        <ol className="relative space-y-3 border-l border-slate-200 pl-4">
+        <ol className="relative space-y-3 border-l border-ash/15 pl-4">
           {brief.timeline.map((t, i) => (
             <li key={i} className="relative">
-              <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-slate-300" />
-              <div className="text-xs text-slate-400">
+              <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-ash/20" />
+              <div className="text-xs text-ash/70">
                 {new Date(t.when).toLocaleDateString("en-PH", {
                   month: "short",
                   day: "numeric",
                 })}{" "}
                 · {t.type}
               </div>
-              <div className="text-sm text-slate-700">{t.text}</div>
+              <div className="text-sm text-ash">{t.text}</div>
             </li>
           ))}
         </ol>
       </Section>
 
-      <p className="border-t border-slate-100 pt-3 text-xs text-slate-400">
+      <p className="border-t border-ash/10 pt-3 text-xs text-ash/70">
         Scout only reads the record — every line above traces to a real activity.
         The call, and the close, stay yours.
       </p>

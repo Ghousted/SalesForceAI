@@ -1,19 +1,42 @@
 @import "tailwindcss";
 
+/*
+ * Cron-inspired design system — "Ember in an obsidian void."
+ * Near-monochrome warm dark canvas; a single ember-orange accent reserved for
+ * primary actions and brand moments. Helvetica Neue carries the whole voice.
+ */
+
+@theme {
+  /* Cron palette → utilities: bg-ember, text-bone, text-ash, bg-graphite, … */
+  --color-ember: #ff4700;
+  --color-ember-glow: #8b2e09;
+  --color-ember-smoke: #451e0e;
+  --color-obsidian: #0f0d0a;
+  --color-graphite: #161412;
+  --color-ash: #cccccc;
+  --color-bone: #ffffff;
+
+  /* Type scale — the 140px display is the signature. */
+  --text-display: 140px;
+  --text-display--line-height: 0.9;
+  --text-display--letter-spacing: -0.021em;
+  --text-display--font-weight: 700;
+  --text-subheading: 22px;
+  --text-subheading--line-height: 1;
+
+  --font-sans: "Helvetica Neue", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Semantic aliases the existing components consume via var(--surface) etc. */
 :root {
-  --background: #f7f7f8;
-  --surface: #ffffff;
-  --border: #e6e6ea;
-  --foreground: #14141a;
-  --muted: #6b6b76;
-  --accent: #4f46e5;
-  --accent-soft: #eef0ff;
-  --done: #15803d;
-  --done-soft: #e8f5ec;
-  --needs: #b45309;
-  --needs-soft: #fdf3e3;
-  --human: #be123c;
-  --human-soft: #fdeef1;
+  --background: #0f0d0a;
+  --surface: #161412;
+  --border: rgba(204, 204, 204, 0.14);
+  --foreground: #ffffff;
+  --muted: #cccccc;
+  --accent: #ff4700;
+  --accent-soft: #451e0e;
 }
 
 @theme inline {
@@ -24,8 +47,6 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
 }
 
 html,
@@ -34,8 +55,43 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   border-color: var(--border);
+}
+
+/* The ember glow — the only elevation in the system. */
+.ember-glow {
+  box-shadow: 0 0 0 1px var(--color-ember-smoke), 0 0 24px 4px var(--color-ember-glow);
+}
+
+/* Quiet, warm scrollbar so it disappears into the void. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 204, 204, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(204, 204, 204, 0.18);
+  border-radius: 9999px;
+}
+
+::selection {
+  background: var(--color-ember);
+  color: var(--color-bone);
+}
+
+/* Respect reduced-motion for the GSAP entrances. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }

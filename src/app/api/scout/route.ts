@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { runScout } from "@/agents/scout";
 import { ensureSnapshot } from "@/lib/data/spine";
+import { tenantRoute } from "@/lib/tenant";
 
-export async function POST(req: Request) {
+export const POST = tenantRoute(async (req: Request) => {
   let contactId: string | undefined;
   try {
     const body = await req.json();
@@ -23,4 +24,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Scout failed";
     return NextResponse.json({ error: message }, { status: 404 });
   }
-}
+});

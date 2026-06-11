@@ -5,7 +5,7 @@ import type { AnalystReport } from "@/agents/analyst";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ash/70">
         {title}
       </h4>
       {children}
@@ -27,7 +27,7 @@ export function AnalystView({ report }: { report: AnalystReport }) {
       </div>
 
       <Section title="How it went">
-        <p className="rounded-lg bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+        <p className="rounded-lg bg-obsidian p-3 text-sm leading-relaxed text-ash">
           {report.narrative}
         </p>
       </Section>
@@ -38,8 +38,8 @@ export function AnalystView({ report }: { report: AnalystReport }) {
             <Section title="What went well">
               <ul className="space-y-1.5">
                 {report.wentWell.map((w, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-700">
-                    <span className="text-green-500">✓</span>
+                  <li key={i} className="flex gap-2 text-sm text-ash">
+                    <span className="text-emerald-400">✓</span>
                     <span>{w}</span>
                   </li>
                 ))}
@@ -50,8 +50,8 @@ export function AnalystView({ report }: { report: AnalystReport }) {
             <Section title="To improve">
               <ul className="space-y-1.5">
                 {report.toImprove.map((t, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-slate-700">
-                    <span className="text-amber-500">→</span>
+                  <li key={i} className="flex gap-2 text-sm text-ash">
+                    <span className="text-amber-400">→</span>
                     <span>{t}</span>
                   </li>
                 ))}
@@ -62,12 +62,12 @@ export function AnalystView({ report }: { report: AnalystReport }) {
       )}
 
       <Section title="Next move">
-        <p className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm font-medium text-indigo-800">
+        <p className="rounded-lg border border-ember/50 bg-ember-smoke p-3 text-sm font-medium text-ember">
           {report.nextStep}
         </p>
       </Section>
 
-      <p className="border-t border-slate-100 pt-3 text-xs text-slate-400">
+      <p className="border-t border-ash/10 pt-3 text-xs text-ash/70">
         The Analyst reviews what's on record. The call itself — and the close —
         stay yours.
       </p>

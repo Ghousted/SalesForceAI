@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { runForecaster } from "@/agents/forecaster";
 import { ensureSnapshot } from "@/lib/data/spine";
 
-export async function POST(req: Request) {
+async function _POST(req: Request) {
   let repId: string | undefined;
   try {
     const body = await req.json();
@@ -20,3 +21,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(_POST);

@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db, DEFAULT_WORKSPACE_ID } from "@/lib/db/client";
+import { db } from "@/lib/db/client";
+import { currentWorkspaceId } from "@/lib/tenant";
 import * as t from "@/lib/db/schema";
 import type { AgentAction, ActionStatus } from "./types";
 
@@ -9,7 +10,6 @@ import type { AgentAction, ActionStatus } from "./types";
  * serverless. Async; callers await.
  */
 
-const WS = DEFAULT_WORKSPACE_ID;
 
 export interface NewAction {
   agentId: string;
@@ -48,7 +48,7 @@ export async function addAction(input: NewAction): Promise<AgentAction> {
     ...input,
   };
   await db.insert(t.actions).values({
-    id: action.id, workspaceId: WS, agentId: action.agentId, kind: action.kind,
+    id: action.id, workspaceId: currentWorkspaceId(), agentId: action.agentId, kind: action.kind,
     title: action.title, detail: action.detail,
     targetKind: action.target.kind, targetId: action.target.id, targetLabel: action.target.label,
     payload: JSON.stringify(action.payload), status: action.status, autonomy: action.autonomy,
@@ -60,7 +60,7 @@ export async function addAction(input: NewAction): Promise<AgentAction> {
 export async function getAction(id: string): Promise<AgentAction | undefined> {
   const rows = await db
     .select().from(t.actions)
-    .where(and(eq(t.actions.id, id), eq(t.actions.workspaceId, WS)));
+    .where(and(eq(t.actions.id, id), eq(t.actions.workspaceId, currentWorkspaceId())));
   return rows[0] ? rowToAction(rows[0]) : undefined;
 }
 
@@ -71,7 +71,7 @@ export async function listActions(filter?: {
 }): Promise<AgentAction[]> {
   const rows = await db
     .select().from(t.actions)
-    .where(eq(t.actions.workspaceId, WS))
+    .where(eq(t.actions.workspaceId, currentWorkspaceId()))
     .orderBy(desc(t.actions.createdAt));
   return rows.map(rowToAction).filter((a) => {
     if (filter?.pending && a.status !== "proposed") return false;
@@ -92,7 +92,7 @@ export async function updateAction(
       ...(patch.resolvedAt !== undefined ? { resolvedAt: patch.resolvedAt } : {}),
       ...(patch.error !== undefined ? { error: patch.error } : {}),
     })
-    .where(and(eq(t.actions.id, id), eq(t.actions.workspaceId, WS)));
+    .where(and(eq(t.actions.id, id), eq(t.actions.workspaceId, currentWorkspaceId())));
   return getAction(id);
 }
 

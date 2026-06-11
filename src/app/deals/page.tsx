@@ -1,4 +1,5 @@
-import { CrmNav } from "@/components/CrmNav";
+import { AppShell } from "@/components/AppShell";
+import { withTenant } from "@/lib/tenant";
 import { DealsView } from "@/components/DealsView";
 import {
   ensureSnapshot,
@@ -10,15 +11,16 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DealsPage() {
+  return withTenant(async () => {
   await ensureSnapshot();
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
-      <CrmNav active="deals" />
+    <AppShell active="deals" title="Deals">
       <DealsView
         deals={listAllDeals()}
         contacts={listAllContacts()}
         reps={listReps()}
       />
-    </div>
+    </AppShell>
   );
+  });
 }

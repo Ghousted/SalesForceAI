@@ -39,7 +39,14 @@ function splitDraft(raw: string, fallbackSubject: string): { subject: string; bo
   return { subject: fallbackSubject, body: text };
 }
 
-export async function runScribe(contactId: string): Promise<AgentRunResult<ScribeDraft>> {
+export interface ScribeBrief {
+  /** Why this draft is needed, e.g. an Auditor flag ("Quiet for 30 days"). */
+  reason?: string;
+  /** Which agent handed Scribe the work (shown on the inbox card). */
+  proposedBy?: string;
+}
+
+export async function runScribe(contactId: string, brief?: ScribeBrief): Promise<AgentRunResult<ScribeDraft>> {
   await ensureAgentConfig(); // so autonomyFor sees per-agent overrides
   const dossier = buildDossier(contactId);
   if (!dossier) throw new Error(`Scribe: no contact ${contactId}`);
@@ -61,6 +68,7 @@ export async function runScribe(contactId: string): Promise<AgentRunResult<Scrib
     deal ? `Deal in play: ${deal.property} (${deal.name}).` : "",
     anchor ? `Last interaction (${anchor.type}): "${anchor.subject}" — ${anchor.body}` : "",
     lastInbound ? `They are awaiting a reply to: "${lastInbound.subject}".` : "",
+    brief?.reason ? `Purpose of this email: ${brief.reason}` : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -82,11 +90,14 @@ export async function runScribe(contactId: string): Promise<AgentRunResult<Scrib
     : `Great connecting, ${contact.firstName}`;
   const { subject, body } = splitDraft(raw, fallbackSubject);
 
+  const handoff = brief?.proposedBy
+    ? `Handed off by ${brief.proposedBy}${brief.reason ? `: ${brief.reason}` : ""}\n`
+    : "";
   const action = await addAction({
     agentId: "scribe",
     kind: "send-email",
     title: `Send follow-up to ${prospectName}`,
-    detail: `⚑ ${describeDelivery(contact.email)}\n\nTo: ${contact.email || "(no email on file)"}\nSubject: ${subject}\n\n${body}`,
+    detail: `${handoff}⚑ ${describeDelivery(contact.email)}\n\nTo: ${contact.email || "(no email on file)"}\nSubject: ${subject}\n\n${body}`,
     target: { kind: "contact", id: contact.id, label: prospectName },
     payload: { subject, body, toEmail: contact.email, contactId: contact.id },
     autonomy: autonomyFor("scribe", "send-email"), // always "ask"

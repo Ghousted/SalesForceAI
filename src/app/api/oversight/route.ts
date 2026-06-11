@@ -4,10 +4,11 @@ import { listActions } from "@/lib/actions/store";
 import { ensureAgentConfig, agentDisplayName, agentEnabled, agentFunnel } from "@/lib/agents/config";
 import { describeFunnel, supportsFunnel } from "@/lib/agents/funnel";
 import { ensureSnapshot } from "@/lib/data/spine";
+import { tenantRoute } from "@/lib/tenant";
 import { ROSTER } from "@/agents/registry";
 
 /** What the agents are doing — a merged feed of trigger runs + proposed/executed actions. */
-export async function GET() {
+export const GET = tenantRoute(async () => {
   await Promise.all([ensureAgentConfig(), ensureSnapshot()]);
   const [runs, actions] = await Promise.all([recentRuns(30), listActions()]);
 
@@ -40,4 +41,4 @@ export async function GET() {
   }));
 
   return NextResponse.json({ scheduler: schedulerRunning(), agents, feed });
-}
+});

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { runSparSession, type SparAnswer } from "@/agents/sparring";
 import { ensureSnapshot } from "@/lib/data/spine";
 
-export async function POST(req: Request) {
+async function _POST(req: Request) {
   let contactId: string | undefined;
   let answers: SparAnswer[] = [];
   try {
@@ -26,3 +27,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 404 });
   }
 }
+
+export const POST = tenantRoute(_POST);

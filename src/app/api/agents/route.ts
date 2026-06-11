@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { listAgentConfigs, setAgentConfig } from "@/lib/agents/config";
 
-export async function GET() {
+async function _GET() {
   return NextResponse.json({ agents: await listAgentConfigs() });
 }
 
 // PATCH { id, displayName?, enabled?, autonomy?, funnel? }
 //   autonomy "default" clears the override; funnel { segment, routeTo }.
-export async function PATCH(req: Request) {
+async function _PATCH(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body?.id) return NextResponse.json({ error: "id is required" }, { status: 400 });
   const autonomy =
@@ -31,3 +32,6 @@ export async function PATCH(req: Request) {
   });
   return NextResponse.json({ ok: true });
 }
+
+export const GET = tenantRoute(_GET);
+export const PATCH = tenantRoute(_PATCH);

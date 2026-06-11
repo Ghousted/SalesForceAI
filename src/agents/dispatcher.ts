@@ -13,6 +13,7 @@ import { autonomyFor } from "@/lib/actions/policy";
 import { ensureAgentConfig } from "@/lib/agents/config";
 import { routeTargetRep } from "@/lib/agents/funnel";
 import { executeAction } from "@/lib/actions/executor";
+import { chainFromRouting } from "./chain";
 import type { AgentAction } from "@/lib/actions/types";
 import type { AgentRunResult } from "./types";
 
@@ -51,6 +52,8 @@ export interface DispatchReport {
   routed: ScoredLead[];
   autoExecuted: number;
   awaitingApproval: number;
+  /** Scout briefs written for auto-routed leads (the Dispatcher→Scout chain). */
+  briefsPrepped: number;
   message: string;
 }
 
@@ -113,7 +116,7 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
     return {
       agentId: "dispatcher",
       headline: message,
-      data: { newLeads: 0, routed: [], autoExecuted: 0, awaitingApproval: 0, message },
+      data: { newLeads: 0, routed: [], autoExecuted: 0, awaitingApproval: 0, briefsPrepped: 0, message },
       evidence: [],
     };
   }
@@ -122,6 +125,7 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
   const routed: ScoredLead[] = [];
   let autoExecuted = 0;
   let awaitingApproval = 0;
+  let briefsPrepped = 0;
 
   // Skip leads that already have a routing waiting in the queue — re-running
   // the Dispatcher shouldn't pile up duplicate proposals for the same person.
@@ -158,7 +162,11 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
 
     if (autonomy === "auto") {
       action = await executeAction({ ...action, status: "proposed" }); // run the write
-      if (action.status === "executed") autoExecuted++;
+      if (action.status === "executed") {
+        autoExecuted++;
+        // Hand the routed lead to Scout — the new owner opens it pre-briefed.
+        if (await chainFromRouting(contact.id)) briefsPrepped++;
+      }
     } else {
       awaitingApproval++;
     }
@@ -184,13 +192,16 @@ export async function runDispatcher(): Promise<AgentRunResult<DispatchReport>> {
     routed.length === 0
       ? "New leads are already in your inbox awaiting approval."
       : autoExecuted > 0
-        ? `${routed.length} lead${routed.length === 1 ? "" : "s"} routed automatically.`
+        ? `${routed.length} lead${routed.length === 1 ? "" : "s"} routed automatically.` +
+          (briefsPrepped > 0
+            ? ` Scout prepped ${briefsPrepped} brief${briefsPrepped === 1 ? "" : "s"}.`
+            : "")
         : `${routed.length} lead${routed.length === 1 ? "" : "s"} scored — awaiting your approval.`;
 
   return {
     agentId: "dispatcher",
     headline: `${routed.length} new lead${routed.length === 1 ? "" : "s"} routed to ${owner.name}`,
-    data: { newLeads: newLeads.length, routed, autoExecuted, awaitingApproval, message },
+    data: { newLeads: newLeads.length, routed, autoExecuted, awaitingApproval, briefsPrepped, message },
     evidence: routed.map((l) => ({ kind: "contact" as const, id: l.contactId, label: l.name })),
   };
 }

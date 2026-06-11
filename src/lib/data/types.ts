@@ -76,6 +76,8 @@ export interface Activity {
   direction?: "inbound" | "outbound";
   subject: string;
   body: string;
+  /** Which agent created this (e.g. "scribe"); undefined → a human logged it. */
+  actorId?: string;
 }
 
 export interface Rep {

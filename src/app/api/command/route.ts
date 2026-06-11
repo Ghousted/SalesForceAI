@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { runCommand } from "@/lib/command/router";
 import { ensureSnapshot } from "@/lib/data/spine";
 
-export async function POST(req: Request) {
+async function _POST(req: Request) {
   let text: string | undefined;
   let repId: string | undefined;
   try {
@@ -24,3 +25,5 @@ export async function POST(req: Request) {
   const outcome = await runCommand(text, repId);
   return NextResponse.json(outcome);
 }
+
+export const POST = tenantRoute(_POST);

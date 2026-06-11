@@ -25,13 +25,24 @@ import type {
 
 const BASE = process.env.HUBSPOT_BASE_URL ?? "https://api.hubapi.com";
 
+/**
+ * The token in force for the current fetch. The connector layer can pass a token
+ * stored per-workspace (`fetchHubSpotSnapshot(token)`); otherwise we fall back to
+ * the env var. Set only for the duration of one snapshot fetch, so concurrent
+ * sub-requests in that fetch share it safely.
+ */
+let tokenOverride: string | undefined;
+function currentToken(): string {
+  return tokenOverride ?? process.env.HUBSPOT_ACCESS_TOKEN ?? "";
+}
+
 export function hubspotConfigured(): boolean {
-  return Boolean(process.env.HUBSPOT_ACCESS_TOKEN);
+  return Boolean(currentToken());
 }
 
 function authHeaders(): Record<string, string> {
   return {
-    Authorization: `Bearer ${process.env.HUBSPOT_ACCESS_TOKEN ?? ""}`,
+    Authorization: `Bearer ${currentToken()}`,
     "Content-Type": "application/json",
   };
 }
@@ -311,12 +322,95 @@ async function hubspotPatch(
   }
 }
 
+/**
+ * Run `fn` with a per-workspace token in force (the connector write-back path).
+ * Same override mechanism `fetchHubSpotSnapshot` uses for reads.
+ */
+export async function withHubSpotToken<T>(token: string, fn: () => Promise<T>): Promise<T> {
+  const prev = tokenOverride;
+  tokenOverride = token;
+  try {
+    return await fn();
+  } finally {
+    tokenOverride = prev;
+  }
+}
+
 /** Assign a contact to an owner. Needs the `crm.objects.contacts.write` scope. */
 export async function hubspotSetContactOwner(
   contactId: string,
   ownerId: string,
 ): Promise<void> {
   await hubspotPatch("contacts", contactId, { hubspot_owner_id: ownerId });
+}
+
+/** Inverse of `mapStage` — our pipeline stage → HubSpot's default-pipeline id. */
+const STAGE_TO_HUBSPOT: Record<DealStage, string> = {
+  new: "appointmentscheduled",
+  qualifying: "qualifiedtobuy",
+  "viewing-scheduled": "presentationscheduled",
+  proposal: "decisionmakerboughtin",
+  reservation: "contractsent",
+  "closed-won": "closedwon",
+  "closed-lost": "closedlost",
+};
+
+/** Patch a deal's core properties. Needs `crm.objects.deals.write`. */
+export async function hubspotUpdateDeal(
+  dealId: string,
+  patch: { name?: string; stage?: DealStage; amount?: number; expectedCloseDate?: string },
+): Promise<void> {
+  const props: Record<string, string> = {};
+  if (patch.name) props.dealname = patch.name;
+  if (patch.stage) props.dealstage = STAGE_TO_HUBSPOT[patch.stage];
+  if (patch.amount !== undefined) props.amount = String(patch.amount);
+  if (patch.expectedCloseDate) props.closedate = patch.expectedCloseDate;
+  if (Object.keys(props).length > 0) await hubspotPatch("deals", dealId, props);
+}
+
+/** Patch a contact's core properties. Needs `crm.objects.contacts.write`. */
+export async function hubspotUpdateContact(
+  contactId: string,
+  patch: { firstName?: string; lastName?: string; email?: string; phone?: string; title?: string },
+): Promise<void> {
+  const props: Record<string, string> = {};
+  if (patch.firstName) props.firstname = patch.firstName;
+  if (patch.lastName) props.lastname = patch.lastName;
+  if (patch.email) props.email = patch.email;
+  if (patch.phone) props.phone = patch.phone;
+  if (patch.title) props.jobtitle = patch.title;
+  if (Object.keys(props).length > 0) await hubspotPatch("contacts", contactId, props);
+}
+
+/**
+ * Log a note on a contact's timeline. Needs `crm.objects.notes.write`.
+ * Note→Contact association typeId is 202.
+ */
+export async function hubspotLogNote(
+  contactId: string,
+  subject: string,
+  body: string,
+): Promise<void> {
+  const res = await fetch(`${BASE}/crm/v3/objects/notes`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      properties: {
+        hs_timestamp: new Date().toISOString(),
+        hs_note_body: body ? `${subject}\n\n${body}` : subject,
+      },
+      associations: [
+        {
+          to: { id: contactId },
+          types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 202 }],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`HubSpot log note → ${res.status}: ${t.slice(0, 200)}`);
+  }
 }
 
 /**
@@ -355,17 +449,26 @@ export async function hubspotLogEmail(
   }
 }
 
-/** Fetch the full snapshot from HubSpot. Throws on any API failure. */
-export async function fetchHubSpotSnapshot(): Promise<CrmSnapshot> {
-  if (!hubspotConfigured()) {
-    throw new Error("HUBSPOT_ACCESS_TOKEN is not set");
+/**
+ * Fetch the full snapshot from HubSpot. Throws on any API failure. Pass a `token`
+ * to use a per-workspace connector credential instead of the env var.
+ */
+export async function fetchHubSpotSnapshot(token?: string): Promise<CrmSnapshot> {
+  const prev = tokenOverride;
+  if (token) tokenOverride = token;
+  try {
+    if (!hubspotConfigured()) {
+      throw new Error("No HubSpot access token provided");
+    }
+    const [reps, companies, contacts, deals, activities] = await Promise.all([
+      loadReps(),
+      loadCompanies(),
+      loadContacts(),
+      loadDeals(),
+      loadActivities(),
+    ]);
+    return { reps, companies, contacts, deals, activities };
+  } finally {
+    tokenOverride = prev;
   }
-  const [reps, companies, contacts, deals, activities] = await Promise.all([
-    loadReps(),
-    loadCompanies(),
-    loadContacts(),
-    loadDeals(),
-    loadActivities(),
-  ]);
-  return { reps, companies, contacts, deals, activities };
 }

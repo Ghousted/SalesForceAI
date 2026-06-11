@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { getAction, updateAction } from "@/lib/actions/store";
 import { executeAction } from "@/lib/actions/executor";
+import { chainFromRouting } from "@/agents/chain";
 
 // POST /api/actions/:id  { decision: "approve" | "reject" }
-export async function POST(
+async function _POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
@@ -36,6 +38,11 @@ export async function POST(
 
   if (decision === "approve") {
     const executed = await executeAction(action);
+    // Dispatcher→Scout chain: a routed lead gets its pre-call brief pinned to
+    // the timeline so the new owner opens the record already briefed.
+    if (executed.status === "executed" && executed.kind === "assign-owner") {
+      await chainFromRouting(executed.target.id);
+    }
     return NextResponse.json({ action: executed });
   }
 
@@ -44,3 +51,5 @@ export async function POST(
     { status: 400 },
   );
 }
+
+export const POST = tenantRoute(_POST);

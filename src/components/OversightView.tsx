@@ -17,7 +17,7 @@ function timeAgo(iso: string): string {
 const STATUS_DOT: Record<string, string> = {
   ok: "bg-green-500", executed: "bg-green-500",
   proposed: "bg-amber-500", error: "bg-rose-500", failed: "bg-rose-500",
-  rejected: "bg-slate-400", skipped: "bg-slate-300",
+  rejected: "bg-ash/30", skipped: "bg-ash/20",
 };
 
 export function OversightView() {
@@ -43,10 +43,10 @@ export function OversightView() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Oversight</h1>
-          <p className="mt-1 text-sm text-slate-500">What your agents are doing — live.</p>
+          <p className="mt-1 text-sm text-ash">What your agents are doing — live.</p>
         </div>
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${data?.scheduler ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${data?.scheduler ? "animate-pulse bg-green-500" : "bg-slate-400"}`} />
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${data?.scheduler ? "bg-emerald-500/15 text-emerald-400" : "bg-ash/10 text-ash"}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${data?.scheduler ? "animate-pulse bg-green-500" : "bg-ash/30"}`} />
           {data?.scheduler ? "agents running" : "scheduler off"}
         </span>
       </div>
@@ -54,35 +54,35 @@ export function OversightView() {
       {/* Agent chips */}
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {data?.agents.map((a) => (
-          <div key={a.id} className={`rounded-xl border p-3 ${a.enabled ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-50 opacity-60"}`}>
+          <div key={a.id} className={`rounded-xl border p-3 ${a.enabled ? "border-ash/15 bg-graphite" : "border-ash/15 bg-obsidian opacity-60"}`}>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-800">{a.name}</span>
-              {a.pending > 0 && <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">{a.pending}</span>}
+              <span className="text-sm font-semibold text-bone">{a.name}</span>
+              {a.pending > 0 && <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-bone">{a.pending}</span>}
             </div>
-            <div className="mt-1 text-[11px] text-slate-400">
+            <div className="mt-1 text-[11px] text-ash/70">
               {a.enabled ? (a.lastRunAt ? `ran ${timeAgo(a.lastRunAt)}` : "idle") : "paused"}
             </div>
-            {a.lane && <div className="mt-0.5 truncate text-[11px] text-indigo-400" title={a.lane}>{a.lane}</div>}
+            {a.lane && <div className="mt-0.5 truncate text-[11px] text-ember" title={a.lane}>{a.lane}</div>}
           </div>
         ))}
       </div>
 
       {/* Activity feed */}
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</h2>
-      <div className="rounded-xl border border-slate-200 bg-white">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ash/70">Activity</h2>
+      <div className="rounded-xl border border-ash/15 bg-graphite">
         {data && data.feed.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-400">No agent activity yet — run an agent or wait for the scheduler.</p>
+          <p className="px-4 py-8 text-center text-sm text-ash/70">No agent activity yet — run an agent or wait for the scheduler.</p>
         )}
-        <ol className="divide-y divide-slate-100">
+        <ol className="divide-y divide-ash/10">
           {data?.feed.map((f) => (
             <li key={f.kind + f.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[f.status] ?? "bg-slate-300"}`} />
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[f.status] ?? "bg-ash/20"}`} />
               <div className="min-w-0 flex-1">
-                <span className="font-medium text-slate-800">{f.agentName}</span>
-                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">{f.kind === "run" ? "ran" : f.status}</span>
-                <p className="truncate text-slate-600">{f.label}</p>
+                <span className="font-medium text-bone">{f.agentName}</span>
+                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-ash/70">{f.kind === "run" ? "ran" : f.status}</span>
+                <p className="truncate text-ash">{f.label}</p>
               </div>
-              <span className="shrink-0 text-[11px] text-slate-400">{timeAgo(f.at)}</span>
+              <span className="shrink-0 text-[11px] text-ash/70">{timeAgo(f.at)}</span>
             </li>
           ))}
         </ol>

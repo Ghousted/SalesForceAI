@@ -9,30 +9,30 @@ const PHP = new Intl.NumberFormat("en-PH", {
 });
 
 const PRIORITY_STYLE: Record<RepCoaching["priority"], string> = {
-  high: "bg-rose-100 text-rose-700",
-  medium: "bg-amber-100 text-amber-700",
-  low: "bg-slate-100 text-slate-600",
+  high: "bg-rose-500/15 text-rose-400",
+  medium: "bg-amber-500/15 text-amber-400",
+  low: "bg-ash/10 text-ash",
 };
 
 export function CoachView({ report }: { report: CoachReport }) {
   return (
     <div className="space-y-6">
-      <p className="rounded-lg bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+      <p className="rounded-lg bg-obsidian p-3 text-sm leading-relaxed text-ash">
         {report.summary}
       </p>
 
       {report.reps.length === 0 ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
           No coaching flags across the floor — reps are on top of their pipeline.
         </p>
       ) : (
         <div className="space-y-4">
           {report.reps.map((r) => (
-            <div key={r.repId} className="rounded-xl border border-slate-200 p-4">
+            <div key={r.repId} className="rounded-xl border border-ash/15 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-800">{r.repName}</h4>
-                  <p className="text-xs text-slate-400">
+                  <h4 className="text-sm font-semibold text-bone">{r.repName}</h4>
+                  <p className="text-xs text-ash/70">
                     {r.dealCount} deals · {r.flagCount} flags · gap {PHP.format(r.optimismGap)}
                   </p>
                 </div>
@@ -43,18 +43,18 @@ export function CoachView({ report }: { report: CoachReport }) {
                 </span>
               </div>
 
-              <p className="mt-2 rounded-lg bg-indigo-50 p-2.5 text-sm text-indigo-800">
+              <p className="mt-2 rounded-lg bg-ember-smoke p-2.5 text-sm text-ember">
                 {r.coaching}
               </p>
 
               <div className="mt-3 space-y-2">
                 {r.focuses.map((f, i) => (
                   <div key={i} className="text-sm">
-                    <span className="font-medium text-slate-700">{f.area}</span>
-                    <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">
+                    <span className="font-medium text-ash">{f.area}</span>
+                    <span className="ml-1 rounded bg-ash/10 px-1.5 py-0.5 text-[10px] text-ash">
                       {f.count}
                     </span>
-                    <p className="mt-0.5 text-slate-600">{f.tip}</p>
+                    <p className="mt-0.5 text-ash">{f.tip}</p>
                   </div>
                 ))}
               </div>
@@ -63,7 +63,7 @@ export function CoachView({ report }: { report: CoachReport }) {
         </div>
       )}
 
-      <p className="border-t border-slate-100 pt-3 text-xs text-slate-400">
+      <p className="border-t border-ash/10 pt-3 text-xs text-ash/70">
         Coaching comes from the same evidence the Auditor flags. The manager acts
         on the tips.
       </p>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { setEnabled, runNow } from "@/lib/triggers/runner";
 
 // POST /api/triggers/:id   { action: "enable" | "disable" | "run" }
-export async function POST(
+async function _POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
@@ -31,3 +32,5 @@ export async function POST(
     { status: 400 },
   );
 }
+
+export const POST = tenantRoute(_POST);

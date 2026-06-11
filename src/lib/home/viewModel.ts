@@ -6,11 +6,13 @@ import { sparringStatus } from "@/agents/sparring";
 import { dispatcherStatus } from "@/agents/dispatcher";
 import { analystStatus } from "@/agents/analyst";
 import { coachStatus } from "@/agents/coach";
-import { pendingCountsByAgent } from "@/lib/actions/store";
+import { pendingCountsByAgent, listActions } from "@/lib/actions/store";
+import { recentRuns } from "@/lib/triggers/runner";
+import { getSetupStatus } from "@/lib/onboarding/setup";
 import { ensureAgentConfig, agentDisplayName, agentEnabled } from "@/lib/agents/config";
 import { php } from "@/lib/format";
 import type { AgentMeta, AgentStatus, AgentWhen } from "@/agents/types";
-import { listContactsForRep, getRep } from "@/lib/data/spine";
+import { listContactsForRep, getRep, listAllContacts, listAllDeals } from "@/lib/data/spine";
 
 /**
  * Builds the roster home view-model (PRD §7): each agent with a push status —
@@ -29,11 +31,32 @@ export interface AgentCardVM {
   enabled: boolean;
 }
 
+export interface DigestItem {
+  agentId: string;
+  agentName: string;
+  summary: string;
+  at: string; // ISO
+}
+
+/** "While you were away" — what the team did unprompted in the last 24h. */
+export interface HomeDigest {
+  items: DigestItem[];
+  pendingCount: number;
+  executedToday: number;
+}
+
 export interface HomeVM {
   repId: string;
   repName: string;
   role: "rep" | "manager";
   groups: { when: AgentWhen; agents: AgentCardVM[] }[];
+  digest: HomeDigest;
+  /** No contacts and no deals in the whole workspace — show first-run onboarding. */
+  workspaceEmpty: boolean;
+  /** The workspace is currently populated with the demo sample pack. */
+  sampleDataLoaded: boolean;
+  /** Getting-started guide progress for the dashboard chip. */
+  setup: { completed: number; total: number; percent: number; show: boolean };
 }
 
 // Representative push statuses for not-yet-runnable agents, so the team reads
@@ -116,6 +139,35 @@ function statusForAgent(
 
 const WHEN_ORDER: AgentWhen[] = ["before", "call", "after", "behind"];
 
+/** Last-24h agent activity, condensed for the strip under the hero. */
+async function buildDigest(pendingByAgent: Record<string, number>): Promise<HomeDigest> {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+  // One line per trigger (newest run wins) so a chatty agent doesn't flood it.
+  const seen = new Set<string>();
+  const items: DigestItem[] = [];
+  for (const run of await recentRuns(30)) {
+    if (Date.parse(run.at) < cutoff || run.status !== "ok") continue;
+    if (seen.has(run.triggerId)) continue;
+    seen.add(run.triggerId);
+    items.push({
+      agentId: run.agentId,
+      agentName: agentDisplayName(run.agentId),
+      summary: run.summary,
+      at: run.at,
+    });
+    if (items.length >= 4) break;
+  }
+
+  const all = await listActions();
+  const executedToday = all.filter(
+    (a) => a.status === "executed" && a.resolvedAt && Date.parse(a.resolvedAt) >= cutoff,
+  ).length;
+  const pendingCount = Object.values(pendingByAgent).reduce((s, n) => s + n, 0);
+
+  return { items, pendingCount, executedToday };
+}
+
 export async function buildHomeVM(
   repId: string,
   role: "rep" | "manager",
@@ -123,6 +175,13 @@ export async function buildHomeVM(
   const rep = getRep(repId);
   const pendingByAgent = await pendingCountsByAgent();
   await ensureAgentConfig();
+  const digest = await buildDigest(pendingByAgent);
+
+  // First-run / sample-data signals (computed from the already-loaded snapshot).
+  const allContacts = listAllContacts();
+  const workspaceEmpty = allContacts.length === 0 && listAllDeals().length === 0;
+  const sampleDataLoaded = allContacts.some((c) => c.id.startsWith("smpl_"));
+  const setupStatus = await getSetupStatus();
 
   const groups = WHEN_ORDER.map((when) => ({
     when,
@@ -142,6 +201,15 @@ export async function buildHomeVM(
     repName: rep?.name ?? "Rep",
     role,
     groups,
+    digest,
+    workspaceEmpty,
+    sampleDataLoaded,
+    setup: {
+      completed: setupStatus.completed,
+      total: setupStatus.total,
+      percent: setupStatus.percent,
+      show: setupStatus.show,
+    },
   };
 }
 

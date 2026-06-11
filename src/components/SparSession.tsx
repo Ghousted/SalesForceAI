@@ -10,9 +10,9 @@ import type {
 import type { AgentRunResult } from "@/agents/types";
 
 function scoreColor(score: number): string {
-  if (score >= 70) return "text-green-700";
-  if (score >= 40) return "text-amber-700";
-  return "text-rose-700";
+  if (score >= 70) return "text-emerald-400";
+  if (score >= 40) return "text-amber-400";
+  return "text-rose-400";
 }
 
 function Bubble({
@@ -28,8 +28,8 @@ function Bubble({
       <div
         className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${
           isRep
-            ? "rounded-br-sm bg-indigo-600 text-white"
-            : "rounded-bl-sm bg-slate-100 text-slate-800"
+            ? "rounded-br-sm bg-ember text-bone"
+            : "rounded-bl-sm bg-ash/10 text-bone"
         }`}
       >
         {children}
@@ -40,9 +40,9 @@ function Bubble({
 
 function EvalNote({ evaluation }: { evaluation: TurnEvaluation }) {
   return (
-    <div className="mx-auto max-w-[90%] rounded-lg border border-slate-200 bg-white p-2.5 text-xs">
+    <div className="mx-auto max-w-[90%] rounded-lg border border-ash/15 bg-graphite p-2.5 text-xs">
       <div className="mb-1 flex items-center justify-between">
-        <span className="font-semibold uppercase tracking-wide text-slate-400">
+        <span className="font-semibold uppercase tracking-wide text-ash/70">
           Coach
         </span>
         <span className={`font-semibold ${scoreColor(evaluation.score)}`}>
@@ -50,12 +50,12 @@ function EvalNote({ evaluation }: { evaluation: TurnEvaluation }) {
         </span>
       </div>
       {evaluation.strengths.map((s, i) => (
-        <div key={`s${i}`} className="text-green-700">
+        <div key={`s${i}`} className="text-emerald-400">
           ✓ {s}
         </div>
       ))}
       {evaluation.misses.map((m, i) => (
-        <div key={`m${i}`} className="text-rose-600">
+        <div key={`m${i}`} className="text-rose-400">
           ✕ {m}
         </div>
       ))}
@@ -123,19 +123,19 @@ export function SparSession({
   return (
     <div className="flex flex-col">
       {/* Scenario header */}
-      <div className="border-b border-slate-100 px-1 pb-3">
-        <p className="text-sm text-slate-600">
+      <div className="border-b border-ash/10 px-1 pb-3">
+        <p className="text-sm text-ash">
           {state?.scenario ?? "Setting up the session…"}
         </p>
         {state && (
           <div className="mt-1 flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ash/10">
               <div
-                className="h-full rounded-full bg-indigo-500 transition-all"
+                className="h-full rounded-full bg-ember transition-all"
                 style={{ width: `${(state.index / state.total) * 100}%` }}
               />
             </div>
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-ash/70">
               {state.index}/{state.total}
             </span>
           </div>
@@ -149,7 +149,7 @@ export function SparSession({
             <Bubble side="prospect">{t.objection.prompt}</Bubble>
             <Bubble side="rep">{t.repMessage}</Bubble>
             <EvalNote evaluation={t.evaluation} />
-            <div className="text-center text-[11px] text-slate-400">
+            <div className="text-center text-[11px] text-ash/70">
               💡 {t.objection.coachingTip}
             </div>
             <Bubble side="prospect">{t.inCharacterReply}</Bubble>
@@ -163,9 +163,9 @@ export function SparSession({
 
         {/* Scorecard */}
         {state?.done && state.scorecard && (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="rounded-xl border border-ember/50 bg-ember-smoke p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-indigo-900">
+              <span className="text-sm font-semibold text-ember">
                 Session scorecard
               </span>
               <span
@@ -174,7 +174,7 @@ export function SparSession({
                 {state.scorecard.overall}/100
               </span>
             </div>
-            <p className="mt-1 text-sm text-indigo-800">
+            <p className="mt-1 text-sm text-ember">
               {state.scorecard.summary}
             </p>
             <div className="mt-3 space-y-1">
@@ -183,7 +183,7 @@ export function SparSession({
                   key={i}
                   className="flex items-center justify-between text-xs"
                 >
-                  <span className="text-slate-600">{p.theme}</span>
+                  <span className="text-ash">{p.theme}</span>
                   <span className={`font-semibold ${scoreColor(p.score)}`}>
                     {p.score}
                   </span>
@@ -193,15 +193,15 @@ export function SparSession({
           </div>
         )}
 
-        {error && <p className="text-sm text-rose-600">{error}</p>}
+        {error && <p className="text-sm text-rose-400">{error}</p>}
       </div>
 
       {/* Composer */}
-      <div className="border-t border-slate-100 pt-3">
+      <div className="border-t border-ash/10 pt-3">
         {state?.done ? (
           <button
             onClick={onClose}
-            className="w-full rounded-lg bg-slate-800 py-2.5 text-sm font-medium text-white hover:bg-slate-900"
+            className="w-full rounded-lg bg-graphite py-2.5 text-sm font-medium text-bone hover:bg-obsidian"
           >
             Done — close
           </button>
@@ -221,18 +221,18 @@ export function SparSession({
               placeholder={
                 busy ? "…" : "Type your response to the objection…"
               }
-              className="flex-1 resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-300"
+              className="flex-1 resize-none rounded-lg border border-ash/15 px-3 py-2 text-sm outline-none focus:border-ember"
             />
             <button
               onClick={send}
               disabled={busy || !input.trim() || !state?.currentObjection}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40 enabled:hover:bg-indigo-700"
+              className="rounded-lg bg-ember px-4 py-2 text-sm font-medium text-bone transition disabled:opacity-40 enabled:hover:bg-ember"
             >
               Send
             </button>
           </div>
         )}
-        <p className="mt-2 text-center text-[11px] text-slate-400">
+        <p className="mt-2 text-center text-[11px] text-ash/70">
           Practice only — no real prospect is contacted. The live call stays
           yours.
         </p>

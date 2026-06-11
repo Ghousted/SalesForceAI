@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db, DEFAULT_WORKSPACE_ID } from "@/lib/db/client";
+import { db } from "@/lib/db/client";
+import { currentWorkspaceId } from "@/lib/tenant";
 import * as t from "@/lib/db/schema";
 import type {
   ActivityType,
@@ -14,7 +15,7 @@ import type {
  * source, and writes (src/lib/data/writes.ts) go straight to these tables.
  */
 export async function loadDbSnapshot(): Promise<CrmSnapshot> {
-  const ws = DEFAULT_WORKSPACE_ID;
+  const ws = currentWorkspaceId();
   const [reps, companies, contacts, deals, activities] = await Promise.all([
     db.select().from(t.reps).where(eq(t.reps.workspaceId, ws)),
     db.select().from(t.companies).where(eq(t.companies.workspaceId, ws)),
@@ -45,6 +46,7 @@ export async function loadDbSnapshot(): Promise<CrmSnapshot> {
       type: a.type as ActivityType, timestamp: a.timestamp,
       direction: (a.direction as "inbound" | "outbound" | null) ?? undefined,
       subject: a.subject, body: a.body,
+      actorId: a.actorId ?? undefined,
     })),
   };
 }

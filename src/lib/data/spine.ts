@@ -1,5 +1,6 @@
 import { SYNTHETIC_SNAPSHOT } from "./synthetic";
 import { activeSource, loadSnapshot } from "./source";
+import { currentWorkspaceId } from "@/lib/tenant";
 import type {
   Activity,
   Company,
@@ -19,7 +20,8 @@ import type {
  * here, so the sync read path is unchanged regardless of source.
  */
 
-let cache: { snapshot: CrmSnapshot; at: number } | null = null;
+// Per-workspace snapshot cache (multi-tenant): keyed by workspace id.
+const cache = new Map<string, { snapshot: CrmSnapshot; at: number }>();
 const TTL_MS = Number(process.env.DATA_TTL_MS ?? 60_000);
 
 /**
@@ -30,26 +32,40 @@ const TTL_MS = Number(process.env.DATA_TTL_MS ?? 60_000);
  */
 export async function ensureSnapshot(): Promise<void> {
   if (activeSource() === "synthetic") return; // getSnapshot() serves synthetic
+  const ws = currentWorkspaceId();
   const now = Date.now();
-  if (cache && now - cache.at < TTL_MS) return;
+  const hit = cache.get(ws);
+  if (hit && now - hit.at < TTL_MS) return;
   try {
     const snapshot = await loadSnapshot();
-    cache = { snapshot, at: now };
+    cache.set(ws, { snapshot, at: now });
   } catch (err) {
     console.error(
-      `[spine] live data load failed; serving ${cache ? "last cache" : "synthetic"} instead:`,
+      `[spine] live data load failed; serving ${hit ? "last cache" : "synthetic"} instead:`,
       err,
     );
   }
 }
 
+const EMPTY_SNAPSHOT: CrmSnapshot = {
+  reps: [],
+  companies: [],
+  contacts: [],
+  deals: [],
+  activities: [],
+};
+
 function getSnapshot(): CrmSnapshot {
-  return cache?.snapshot ?? SYNTHETIC_SNAPSHOT;
+  const cached = cache.get(currentWorkspaceId())?.snapshot;
+  if (cached) return cached;
+  // Only the offline-demo source serves the synthetic pack; a real (DB) workspace
+  // that hasn't hydrated yet shows nothing — never leak demo data into it.
+  return activeSource() === "synthetic" ? SYNTHETIC_SNAPSHOT : EMPTY_SNAPSHOT;
 }
 
-/** Drop the cache so the next `ensureSnapshot()` refetches — call after a write. */
+/** Drop this workspace's cache so the next `ensureSnapshot()` refetches. */
 export function invalidateSnapshot(): void {
-  cache = null;
+  cache.delete(currentWorkspaceId());
 }
 
 /**

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import {
   listTriggers,
   recentRuns,
@@ -6,7 +7,7 @@ import {
   ensureScheduler,
 } from "@/lib/triggers/runner";
 
-export async function GET() {
+async function _GET() {
   // Lazily make sure the scheduler is up (covers servers that didn't run
   // instrumentation, e.g. some dev setups).
   ensureScheduler();
@@ -16,3 +17,5 @@ export async function GET() {
     runs: await recentRuns(),
   });
 }
+
+export const GET = tenantRoute(_GET);

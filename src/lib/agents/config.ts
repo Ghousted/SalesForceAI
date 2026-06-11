@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db, DEFAULT_WORKSPACE_ID } from "@/lib/db/client";
+import { db } from "@/lib/db/client";
+import { currentWorkspaceId } from "@/lib/tenant";
 import * as t from "@/lib/db/schema";
 import { getAgentMeta, ROSTER } from "@/agents/registry";
 
@@ -40,34 +41,46 @@ function parseFunnel(raw: string | null): AgentFunnel | undefined {
   }
 }
 
-const WS = DEFAULT_WORKSPACE_ID;
 const TTL = 30_000;
+// Per-workspace cache: each tenant's agent config is isolated.
 const g = globalThis as unknown as {
-  __salesosAgentCfg?: { map: Record<string, AgentCfg>; at: number } | null;
+  __salesosAgentCfg?: Map<string, { map: Record<string, AgentCfg>; at: number }>;
 };
+function bag() {
+  return (g.__salesosAgentCfg ??= new Map());
+}
+/** Composite row id so each workspace owns its own agent-config rows. */
+function rowId(workspaceId: string, agentId: string): string {
+  return `${workspaceId}:${agentId}`;
+}
+function agentIdOf(rowId: string): string {
+  const i = rowId.indexOf(":");
+  return i === -1 ? rowId : rowId.slice(i + 1);
+}
 
 export async function ensureAgentConfig(): Promise<void> {
-  const c = g.__salesosAgentCfg;
+  const ws = currentWorkspaceId();
+  const c = bag().get(ws);
   if (c && Date.now() - c.at < TTL) return;
   try {
-    const rows = await db.select().from(t.agentConfig).where(eq(t.agentConfig.workspaceId, WS));
+    const rows = await db.select().from(t.agentConfig).where(eq(t.agentConfig.workspaceId, ws));
     const map: Record<string, AgentCfg> = {};
     for (const r of rows) {
-      map[r.id] = {
+      map[agentIdOf(r.id)] = {
         displayName: r.displayName ?? undefined,
         enabled: r.enabled,
         autonomy: (r.autonomy as "ask" | "auto" | null) ?? undefined,
         funnel: parseFunnel(r.funnel),
       };
     }
-    g.__salesosAgentCfg = { map, at: Date.now() };
+    bag().set(ws, { map, at: Date.now() });
   } catch {
     /* keep prior cache */
   }
 }
 
 function cfg(agentId: string): AgentCfg {
-  return g.__salesosAgentCfg?.map[agentId] ?? { enabled: true };
+  return bag().get(currentWorkspaceId())?.map[agentId] ?? { enabled: true };
 }
 
 export function agentDisplayName(agentId: string): string {
@@ -92,7 +105,9 @@ export async function setAgentConfig(
     funnel?: AgentFunnel | null;
   },
 ): Promise<void> {
-  const existing = await db.select().from(t.agentConfig).where(eq(t.agentConfig.id, agentId));
+  const ws = currentWorkspaceId();
+  const id = rowId(ws, agentId);
+  const existing = await db.select().from(t.agentConfig).where(eq(t.agentConfig.id, id));
   const funnelJson =
     patch.funnel === undefined ? undefined : patch.funnel ? JSON.stringify(patch.funnel) : null;
   const set = {
@@ -102,17 +117,17 @@ export async function setAgentConfig(
     ...(funnelJson !== undefined ? { funnel: funnelJson } : {}),
   };
   if (existing[0]) {
-    await db.update(t.agentConfig).set(set).where(eq(t.agentConfig.id, agentId));
+    await db.update(t.agentConfig).set(set).where(eq(t.agentConfig.id, id));
   } else {
     await db.insert(t.agentConfig).values({
-      id: agentId, workspaceId: WS,
+      id, workspaceId: ws,
       displayName: patch.displayName ?? null,
       enabled: patch.enabled ?? true,
       autonomy: patch.autonomy ?? null,
       funnel: funnelJson ?? null,
     });
   }
-  g.__salesosAgentCfg = null; // invalidate
+  bag().delete(ws); // invalidate this workspace's cache
 }
 
 /** The full config list for the settings UI (excludes the human seat). */

@@ -2,25 +2,40 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Light access guard for the deployed single-workspace demo. Active only when
- * `APP_PASSWORD` is set — local dev (no password) is unguarded. The cron tick
- * endpoint is exempt (it has its own `CRON_SECRET`).
+ * Auth gate. Public: the landing page, the auth pages + endpoints, and the cron
+ * tick (it carries its own CRON_SECRET). Everything else requires a session
+ * cookie — its presence is checked cheaply here at the edge; the real
+ * validation (DB lookup) happens in the server components via getCurrentUser().
+ *
+ * The cookie name is inlined (not imported from lib/auth/session) so this Edge
+ * bundle doesn't pull in the Node-only DB client.
  */
-export function middleware(req: NextRequest) {
-  const pw = process.env.APP_PASSWORD;
-  if (!pw) return NextResponse.next();
-  if (req.nextUrl.pathname.startsWith("/api/triggers/tick")) return NextResponse.next();
 
-  const auth = req.headers.get("authorization");
-  if (auth?.startsWith("Basic ")) {
-    const decoded = atob(auth.slice(6));
-    const pass = decoded.slice(decoded.indexOf(":") + 1);
-    if (pass === pw) return NextResponse.next();
+const SESSION_COOKIE = "salesos_session";
+const PUBLIC_PAGES = new Set(["/", "/login", "/signup"]);
+
+function isPublic(pathname: string): boolean {
+  if (PUBLIC_PAGES.has(pathname)) return true;
+  if (pathname.startsWith("/api/auth/")) return true;
+  if (pathname.startsWith("/api/triggers/tick")) return true;
+  return false;
+}
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (isPublic(pathname)) return NextResponse.next();
+
+  const hasSession = Boolean(req.cookies.get(SESSION_COOKIE)?.value);
+  if (hasSession) return NextResponse.next();
+
+  // No session: APIs get a 401, page requests bounce to login.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Sales OS"' },
-  });
+  const url = req.nextUrl.clone();
+  url.pathname = "/login";
+  url.searchParams.set("next", pathname);
+  return NextResponse.redirect(url);
 }
 
 export const config = {

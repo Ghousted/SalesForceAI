@@ -53,6 +53,8 @@ export interface AuditFlag {
 export interface DealAudit {
   dealId: string;
   dealName: string;
+  /** The deal's primary contact — lets downstream agents act on the flag. */
+  contactId: string;
   prospectName: string;
   stageLabel: string;
   amount: number;
@@ -242,6 +244,7 @@ function auditDeal(deal: Deal): DealAudit {
   return {
     dealId: deal.id,
     dealName: deal.name,
+    contactId: deal.contactId,
     prospectName,
     stageLabel: DEAL_STAGE_LABELS[deal.stage],
     amount: deal.amount,

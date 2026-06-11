@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { tenantRoute } from "@/lib/tenant";
 import { runDispatcher } from "@/agents/dispatcher";
 import { ensureSnapshot } from "@/lib/data/spine";
 
-export async function POST() {
+async function _POST() {
   try {
     await ensureSnapshot();
     const result = await runDispatcher();
@@ -12,3 +13,5 @@ export async function POST() {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = tenantRoute(_POST);

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { gsap } from "gsap";
+import { useGSAP } from "@gsap/react";
 import type { ScoutBrief } from "@/agents/scout";
 import type { AuditReport } from "@/agents/auditor";
 import type { Forecast } from "@/agents/forecaster";
@@ -22,6 +24,9 @@ import { ActionList } from "./ActionList";
 import { AutomationsPanel } from "./AutomationsPanel";
 import { AnalystView } from "./AnalystView";
 import { CoachView } from "./CoachView";
+import { MetricsRow } from "./MetricsRow";
+import { Onboarding, SampleDataBanner } from "./Onboarding";
+import type { DealMetrics } from "@/lib/home/metrics";
 
 export interface ContactSummary {
   id: string;
@@ -30,13 +35,18 @@ export interface ContactSummary {
   stageLabel: string | null;
 }
 
+gsap.registerPlugin(useGSAP);
+
 export function Workspace({
   home,
   contacts,
+  metrics,
 }: {
   home: HomeVM;
   contacts: ContactSummary[];
+  metrics?: DealMetrics;
 }) {
+  const root = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [brief, setBrief] = useState<ScoutBrief | null>(null);
   const [audit, setAudit] = useState<AuditReport | null>(null);
@@ -67,6 +77,31 @@ export function Workspace({
     const t = setInterval(() => void refreshPending(), 30_000);
     return () => clearInterval(t);
   }, [refreshPending]);
+
+  // Entrance: the bar settles, the headline rises, the roster staggers in.
+  // matchMedia → no animation for reduced-motion (content stays as SSR'd);
+  // fromTo + clearProps guarantees elements always end fully visible.
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const ease = "power3.out";
+        const o = { immediateRender: true, clearProps: "opacity,transform" } as const;
+        gsap.fromTo("[data-reveal='bar']", { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease, ...o });
+        gsap.fromTo(
+          "[data-reveal='hero']",
+          { y: 22, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7, ease, delay: 0.05, stagger: 0.08, ...o },
+        );
+        gsap.fromTo(
+          ".agent-card",
+          { y: 18, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5, ease, delay: 0.2, stagger: { each: 0.045, from: "start" }, ...o },
+        );
+      });
+    },
+    { scope: root },
+  );
 
   async function runDispatcher() {
     setBusy(true);
@@ -266,78 +301,56 @@ export function Workspace({
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
-      {/* Top bar */}
-      <header className="mb-7 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            S
-          </div>
-          <div>
-            <div className="text-sm font-semibold leading-tight">Sales OS</div>
-            <div className="text-xs text-slate-400">
-              AI owns the system · the human owns the close
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setAutomationsOpen(true)}
-            className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300"
+    <div ref={root}>
+      {/* Page actions */}
+      <div data-reveal="bar" className="mb-8 flex items-center justify-end gap-2">
+        <button
+          onClick={() => setAutomationsOpen(true)}
+          className="rounded-full px-3 py-1.5 text-[13px] font-medium text-ash transition-colors hover:text-bone"
+        >
+          Automations
+        </button>
+        <button
+          onClick={() => setInboxOpen(true)}
+          className="relative rounded-[4px] bg-ember px-3.5 py-1.5 text-[13px] font-medium text-bone ember-glow transition-transform hover:scale-[1.03]"
+        >
+          Inbox
+          {pending.length > 0 && (
+            <span className="ml-1.5 rounded-full bg-bone/20 px-1.5 py-0.5 text-[10px] font-bold text-bone">
+              {pending.length}
+            </span>
+          )}
+        </button>
+        <nav className="ml-1 flex items-center gap-0.5 rounded-full bg-ash/10 p-0.5 text-[13px]">
+          <Link
+            href="/app"
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${home.role === "rep" ? "bg-graphite text-bone" : "text-ash hover:text-bone"}`}
           >
-            Automations
-          </button>
-          <button
-            onClick={() => setInboxOpen(true)}
-            className="relative rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300"
+            Rep
+          </Link>
+          <Link
+            href="/manager"
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${home.role === "manager" ? "bg-graphite text-bone" : "text-ash hover:text-bone"}`}
           >
-            Inbox
-            {pending.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {pending.length}
-              </span>
-            )}
-          </button>
-          <Link href="/contacts" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
-            Contacts
+            Manager
           </Link>
-          <Link href="/deals" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
-            Deals
-          </Link>
-          <Link href="/oversight" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
-            Oversight
-          </Link>
-          <Link href="/agents" className="rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:border-indigo-300">
-            Agents
-          </Link>
-          <nav className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
-            <Link
-              href="/"
-              className={`rounded-md px-3 py-1 font-medium ${home.role === "rep" ? "bg-white shadow-sm" : "text-slate-500"}`}
-            >
-              Rep
-            </Link>
-            <Link
-              href="/manager"
-              className={`rounded-md px-3 py-1 font-medium ${home.role === "manager" ? "bg-white shadow-sm" : "text-slate-500"}`}
-            >
-              Manager
-            </Link>
-          </nav>
-        </div>
-      </header>
+        </nav>
+      </div>
 
-      {/* Greeting + command bar */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {home.role === "manager" ? "Your floor" : `Good day, ${home.repName.split(" ")[0]}`}
+      {/* Hero — the signature display headline */}
+      <div className="mb-12">
+        <h1
+          data-reveal="hero"
+          className="text-[clamp(2.75rem,8vw,5.5rem)] font-bold leading-[0.9] tracking-[-0.021em] text-bone"
+        >
+          {home.role === "manager" ? "Your floor." : `Good day, ${home.repName.split(" ")[0]}.`}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p data-reveal="hero" className="mt-5 max-w-xl text-[15px] leading-[1.5] text-ash">
           {home.role === "manager"
-            ? "The same team, watching the whole pipeline's truth."
+            ? "The same team, watching the whole pipeline's truth — AI owns the system, you own the close."
             : "Here's your team and what they've handled. The live call is yours."}
         </p>
-        <div className="mt-4">
+        <div data-reveal="hero" className="mt-7 max-w-2xl">
           <CommandBar
             onSubmit={runCommand}
             busy={busy}
@@ -347,15 +360,81 @@ export function Workspace({
                 : "Ask your team…"
             }
           />
-          {note && <p className="mt-2 text-sm text-amber-700">{note}</p>}
+          {note && <p className="mt-2 text-sm text-ember">{note}</p>}
         </div>
       </div>
+
+      {/* Setup-guide progress — pinned until the checklist is done or dismissed */}
+      {home.setup.show && !home.workspaceEmpty && (
+        <Link
+          href="/setup"
+          data-reveal="hero"
+          className="group mb-6 flex items-center gap-3 rounded-lg border border-ember/25 bg-ember/[0.06] px-4 py-2.5 transition-colors hover:border-ember/50"
+        >
+          <span className="text-[13px] font-medium text-bone">Setup guide</span>
+          <span className="h-1.5 w-28 overflow-hidden rounded-full bg-ash/10">
+            <span className="block h-full rounded-full bg-ember" style={{ width: `${Math.max(4, home.setup.percent)}%` }} />
+          </span>
+          <span className="text-[12px] text-ash/70">
+            {home.setup.completed} of {home.setup.total} done
+          </span>
+          <span className="ml-auto text-[12px] font-medium text-ember transition-transform group-hover:translate-x-0.5">
+            Continue →
+          </span>
+        </Link>
+      )}
+
+      {/* First-run onboarding — only when the workspace has no records at all */}
+      {home.workspaceEmpty && <Onboarding name={home.repName} />}
+
+      {/* Sample-data notice — so demo data is never mistaken for real */}
+      {home.sampleDataLoaded && <SampleDataBanner />}
+
+      {/* While you were away — what the team did unprompted */}
+      {(home.digest.items.length > 0 || home.digest.pendingCount > 0) && (
+        <section data-reveal="hero" className="mb-10">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ash/70">
+            While you were away
+          </h2>
+          <div className="rounded-xl border border-ash/12 bg-graphite p-4">
+            <ul className="space-y-2">
+              {home.digest.items.map((d) => (
+                <li key={`${d.agentId}-${d.at}`} className="flex items-baseline gap-2.5 text-[13px]">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ember/15 px-2 py-0.5 text-[10px] font-semibold text-ember">
+                    <span className="h-1 w-1 rounded-full bg-ember" />
+                    {d.agentName}
+                  </span>
+                  <span className="min-w-0 text-ash">{d.summary}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-ash/50">{relTime(d.at)}</span>
+                </li>
+              ))}
+              {home.digest.items.length === 0 && (
+                <li className="text-[13px] text-ash/60">The team is standing by — proposals below need your call.</li>
+              )}
+            </ul>
+            <div className="mt-3 flex items-center gap-3 border-t border-ash/10 pt-3 text-[12px] text-ash/70">
+              <span>{home.digest.executedToday} action{home.digest.executedToday === 1 ? "" : "s"} executed today</span>
+              {home.digest.pendingCount > 0 && (
+                <button
+                  onClick={() => setInboxOpen(true)}
+                  className="ml-auto rounded-[4px] bg-ember px-3 py-1 text-[12px] font-medium text-bone ember-glow transition-transform hover:scale-[1.03]"
+                >
+                  Review {home.digest.pendingCount} waiting
+                </button>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Pipeline metrics — hidden on an empty workspace (all zeros add no signal) */}
+      {metrics && !home.workspaceEmpty && <MetricsRow metrics={metrics} />}
 
       {/* Roster, grouped by lifecycle */}
       <div className="space-y-7">
         {home.groups.map((g) => (
           <section key={g.when}>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ash/70">
               {WHEN_LABELS[g.when]}
             </h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -381,7 +460,7 @@ export function Workspace({
                   : "Who are you meeting?"
           }
         >
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-ash/10">
             {contacts.map((c) => (
               <li key={c.id}>
                 <button
@@ -392,18 +471,18 @@ export function Workspace({
                     else if (pickMode === "analyst") analystFor(c.id);
                     else scoutFor(c.id);
                   }}
-                  className="flex w-full items-center justify-between py-3 text-left hover:bg-slate-50"
+                  className="flex w-full items-center justify-between py-3 text-left hover:bg-obsidian"
                 >
                   <span>
-                    <span className="font-medium text-slate-800">{c.name}</span>
+                    <span className="font-medium text-bone">{c.name}</span>
                     {c.dealName && (
-                      <span className="block text-xs text-slate-400">
+                      <span className="block text-xs text-ash/70">
                         {c.dealName}
                       </span>
                     )}
                   </span>
                   {c.stageLabel && (
-                    <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                    <span className="rounded bg-ash/10 px-2 py-0.5 text-xs text-ash">
                       {c.stageLabel}
                     </span>
                   )}
@@ -487,13 +566,13 @@ export function Workspace({
         <Overlay onClose={() => setInboxOpen(false)} title="Inbox · needs you" wide>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-ash">
                 Agents propose; you decide. Approving runs the change against your CRM.
               </p>
               <button
                 onClick={runDispatcher}
                 disabled={busy}
-                className="shrink-0 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40 enabled:hover:bg-slate-900"
+                className="shrink-0 rounded-lg bg-graphite px-3 py-1.5 text-xs font-medium text-bone transition disabled:opacity-40 enabled:hover:bg-obsidian"
               >
                 {busy ? "Scanning…" : "Scan for new leads"}
               </button>
@@ -508,6 +587,14 @@ export function Workspace({
       )}
     </div>
   );
+}
+
+function relTime(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`;
 }
 
 function Overlay({
@@ -527,14 +614,14 @@ function Overlay({
       onClick={onClose}
     >
       <div
-        className={`h-full overflow-y-auto bg-white shadow-2xl ${wide ? "w-full max-w-xl" : "w-full max-w-md"}`}
+        className={`h-full overflow-y-auto bg-graphite shadow-2xl ${wide ? "w-full max-w-xl" : "w-full max-w-md"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 bg-white/90 px-5 py-3 backdrop-blur">
-          <span className="text-sm font-semibold text-slate-600">{title}</span>
+        <div className="sticky top-0 flex items-center justify-between border-b border-ash/10 bg-graphite/90 px-5 py-3 backdrop-blur">
+          <span className="text-sm font-semibold text-ash">{title}</span>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-100"
+            className="rounded-md px-2 py-1 text-ash/70 hover:bg-ash/10"
           >
             ✕
           </button>
